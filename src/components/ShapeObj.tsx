@@ -3,7 +3,7 @@ import type { Shape } from '../store/useStore';
 import Konva from 'konva';
 import { RectShape } from './shapes/RectShape';
 import { CircleShape } from './shapes/CircleShape';
-import { LineShape } from './shapes/LineShape';
+import { SegmentShape } from './shapes/SegmentShape';
 import { PolygonShape } from './shapes/PolygonShape';
 import { TriangleShape } from './shapes/TriangleShape';
 
@@ -23,8 +23,8 @@ export const ShapeObj: React.FC<ShapeObjProps> = (props) => {
       return <RectShape {...props} />;
     case 'circle':
       return <CircleShape {...props} />;
-    case 'line':
-      return <LineShape {...props} />;
+    case 'segment':
+      return <SegmentShape {...props} />;
     case 'polygon':
       return <PolygonShape {...props} />;
     case 'triangle':

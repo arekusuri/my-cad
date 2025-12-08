@@ -108,7 +108,7 @@ export const Canvas: React.FC = () => {
       }
     }
 
-    if (tool !== 'rect' && tool !== 'circle' && tool !== 'line' && tool !== 'polygon' && tool !== 'triangle') return;
+    if (tool !== 'rect' && tool !== 'circle' && tool !== 'segment' && tool !== 'polygon' && tool !== 'triangle') return;
 
     // Start drawing
     const stage = e.target.getStage();
@@ -182,10 +182,10 @@ export const Canvas: React.FC = () => {
         type: 'circle',
         radius: 0,
       });
-    } else if (tool === 'line') {
+    } else if (tool === 'segment') {
       addShape({
         ...newShapeBase,
-        type: 'line',
+        type: 'segment',
         x, 
         y, 
         points: [0, 0, 0, 0], // Points relative to origin
@@ -223,13 +223,13 @@ export const Canvas: React.FC = () => {
         let newX = mouseX;
         let newY = mouseY;
         
-        // Check if we're dragging a line vertex
+        // Check if we're dragging a segment vertex
         const draggedShape = shapes.find(s => s.id === draggingVertex.shapeId);
-        const isLineVertex = draggedShape?.type === 'line';
+        const isSegmentVertex = draggedShape?.type === 'segment';
         
-        // For lines with ortho: make line H/V (handled in handleVertexDrag)
+        // For segments with ortho: make segment H/V (handled in handleVertexDrag)
         // For other shapes: constrain movement to axis
-        if (isOrthoEnabled && !isLineVertex) {
+        if (isOrthoEnabled && !isSegmentVertex) {
             const constrained = constrainToAxis(
                 { x: draggingVertex.startX, y: draggingVertex.startY },
                 { x: mouseX, y: mouseY }
@@ -247,10 +247,10 @@ export const Canvas: React.FC = () => {
         // Pass isOrthoEnabled for line H/V constraint
         handleVertexDrag(draggingVertex, newX, newY, shapes, updateShape, isOrthoEnabled);
         
-        // Calculate actual highlight position (for lines with ortho, compute constrained position)
+        // Calculate actual highlight position (for segments with ortho, compute constrained position)
         let highlightX = newX;
         let highlightY = newY;
-        if (isOrthoEnabled && isLineVertex && draggedShape?.points && draggedShape.points.length === 4) {
+        if (isOrthoEnabled && isSegmentVertex && draggedShape?.points && draggedShape.points.length === 4) {
             const idx = draggingVertex.index;
             const otherIndex = idx === 0 ? 1 : 0;
             const otherAbsX = draggedShape.x + draggedShape.points[otherIndex * 2];
@@ -345,7 +345,7 @@ export const Canvas: React.FC = () => {
       updateShape(shape.id, {
         radius,
       });
-    } else if (shape.type === 'line') {
+    } else if (shape.type === 'segment') {
       // Logic for Ortho mode
       let endX = snapX - shape.x;
       let endY = snapY - shape.y;
@@ -405,7 +405,7 @@ export const Canvas: React.FC = () => {
         const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
         if (shape) {
             // Check if shape is too small
-            if (shape.type === 'line') {
+            if (shape.type === 'segment') {
                 const points = shape.points || [0,0,0,0];
                 if (Math.abs(points[2] - points[0]) < 1 && Math.abs(points[3] - points[1]) < 1) {
                     deleteShape(shape.id);
@@ -440,7 +440,7 @@ export const Canvas: React.FC = () => {
 
             selectedIds.forEach(id => {
                 const shape = shapes.find(s => s.id === id);
-                if (!shape || (shape.type !== 'line' && shape.type !== 'polygon') || !shape.points) return;
+                if (!shape || (shape.type !== 'segment' && shape.type !== 'polygon') || !shape.points) return;
 
                 const indices: number[] = [];
                 const rad = (shape.rotation * Math.PI) / 180;
@@ -560,8 +560,8 @@ export const Canvas: React.FC = () => {
 
   const handleTrim = (targetId: string, clickX: number, clickY: number) => {
       const targetShape = shapes.find(s => s.id === targetId);
-      if (!targetShape || targetShape.type !== 'line') {
-          // Can only trim lines for now
+      if (!targetShape || targetShape.type !== 'segment') {
+          // Can only trim segments for now
           return;
       }
 
@@ -576,7 +576,7 @@ export const Canvas: React.FC = () => {
 
           const otherLines: { p1: { x: number, y: number }, p2: { x: number, y: number } }[] = [];
 
-          if (other.type === 'line') {
+          if (other.type === 'segment') {
               otherLines.push({
                   p1: { x: other.x + (other.points?.[0] || 0), y: other.y + (other.points?.[1] || 0) },
                   p2: { x: other.x + (other.points?.[2] || 0), y: other.y + (other.points?.[3] || 0) }
@@ -645,15 +645,15 @@ export const Canvas: React.FC = () => {
           return;
       }
 
-      const linesToCreate: Shape[] = [];
+      const segmentsToCreate: Shape[] = [];
       
       if (removeIndex > 0) {
           const startPt = p1;
           const endPt = intersections[removeIndex - 1].point; 
           
-          linesToCreate.push({
+          segmentsToCreate.push({
               id: '', 
-              type: 'line',
+              type: 'segment',
               x: startPt.x,
               y: startPt.y,
               points: [0, 0, endPt.x - startPt.x, endPt.y - startPt.y],
@@ -666,9 +666,9 @@ export const Canvas: React.FC = () => {
           const startPt = intersections[removeIndex].point;
           const endPt = p2;
           
-          linesToCreate.push({
+          segmentsToCreate.push({
               id: '',
-              type: 'line',
+              type: 'segment',
               x: startPt.x,
               y: startPt.y,
               points: [0, 0, endPt.x - startPt.x, endPt.y - startPt.y],
@@ -678,7 +678,7 @@ export const Canvas: React.FC = () => {
       }
 
       deleteShape(targetId);
-      linesToCreate.forEach(l => addShape(l));
+      segmentsToCreate.forEach(l => addShape(l));
   };
 
   // Grid generation

@@ -12,7 +12,7 @@ export const Toolbar: React.FC = () => {
     { name: 'circle', icon: Circle },
     { name: 'triangle', icon: Triangle },
     { name: 'polygon', icon: Hexagon },
-    { name: 'line', icon: Minus },
+    { name: 'segment', icon: Minus },
     { name: 'trim', icon: Scissors },
     { name: 'eraser', icon: Eraser },
   ] as const;

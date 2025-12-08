@@ -4,9 +4,9 @@ import type { Shape } from '../../store/useStore';
 import { useStore } from '../../store/useStore';
 import Konva from 'konva';
 import { commonDragBoundFunc, limitResizeBoundBoxFunc } from './CommonShape_ops';
-import { getPolyTransformAttrs, calculateVertexDrag, calculateVertexPos } from './LineShape_ops';
+import { getPolyTransformAttrs, calculateVertexDrag, calculateVertexPos } from './SegmentShape_ops';
 
-interface LineShapeProps {
+interface SegmentShapeProps {
   shape: Shape;
   isSelected: boolean;
   onSelect: () => void;
@@ -14,7 +14,7 @@ interface LineShapeProps {
   onTrim: (e: Konva.KonvaEventObject<MouseEvent> | Konva.KonvaEventObject<TouchEvent>) => void;
 }
 
-export const LineShape: React.FC<LineShapeProps> = ({
+export const SegmentShape: React.FC<SegmentShapeProps> = ({
   shape,
   isSelected,
   onSelect,

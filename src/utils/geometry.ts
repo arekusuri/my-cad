@@ -118,7 +118,7 @@ export function isShapeInRect(shape: Shape, rect: { x: number; y: number; width:
         const r = shape.radius || 0;
         // Check bounding box of circle
         return contains(shape.x - r, shape.y - r) && contains(shape.x + r, shape.y + r);
-    } else if (shape.type === 'line' || shape.type === 'polygon') {
+    } else if (shape.type === 'segment' || shape.type === 'polygon') {
         const points = shape.points || [];
         const rad = (shape.rotation * Math.PI) / 180;
         const cos = Math.cos(rad);
@@ -168,7 +168,7 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
         const dy = shape.y - cy;
         return (dx * dx + dy * dy) <= ((shape.radius || 0) * (shape.radius || 0));
         
-    } else if (shape.type === 'line' || shape.type === 'polygon') {
+    } else if (shape.type === 'segment' || shape.type === 'polygon') {
          const points = shape.points || [];
          const rad = (shape.rotation * Math.PI) / 180;
          const cos = Math.cos(rad);
@@ -207,7 +207,7 @@ export function getShapeVertices(shape: Shape): Point[] {
     if (shape.type === 'rect') {
         const corners = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation).map(line => line[0]);
         vertices.push(...corners);
-    } else if (shape.type === 'line' || shape.type === 'polygon') {
+    } else if (shape.type === 'segment' || shape.type === 'polygon') {
         const points = shape.points || [];
         const rad = (shape.rotation * Math.PI) / 180;
         const cos = Math.cos(rad);
@@ -281,7 +281,7 @@ export function getShapeMidpoints(shape: Shape): Point[] {
                  y: (p1.y + p2.y) / 2
              });
         });
-    } else if (shape.type === 'line' || shape.type === 'polygon' || shape.type === 'triangle') {
+    } else if (shape.type === 'segment' || shape.type === 'polygon' || shape.type === 'triangle') {
         const vertices = getShapeVertices(shape);
         // For line/polygon/triangle, vertices are ordered.
         // Line: 2 points -> 1 midpoint
