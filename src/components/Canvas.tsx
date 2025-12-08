@@ -1,0 +1,391 @@
+import React, { useState, useRef } from 'react';
+import { Stage, Layer, Line, Rect } from 'react-konva';
+import { useStore, type Shape } from '../store/useStore';
+import { ShapeObj } from './ShapeObj';
+import Konva from 'konva';
+import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIntersectRect } from '../utils/geometry';
+
+const GRID_SIZE = 20;
+
+export const Canvas: React.FC = () => {
+  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape } = useStore();
+  const [isDrawing, setIsDrawing] = useState(false);
+  const drawingShapeId = useRef<string | null>(null);
+  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  
+  // Snap function
+  const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
+
+  const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // If clicking on stage (empty area)
+    const clickedOnEmpty = e.target === e.target.getStage();
+    
+    if (clickedOnEmpty) {
+      selectShape(null);
+      
+      if (tool === 'select') {
+        const stage = e.target.getStage();
+        const pos = stage?.getPointerPosition();
+        if (pos) {
+            setSelectionBox({
+                startX: pos.x,
+                startY: pos.y,
+                currentX: pos.x,
+                currentY: pos.y
+            });
+        }
+      }
+    }
+
+    if (tool !== 'rect' && tool !== 'circle' && tool !== 'line') return;
+
+    // Start drawing
+    const stage = e.target.getStage();
+    const pos = stage?.getPointerPosition();
+    if (!pos) return;
+
+    const x = snapToGrid(pos.x);
+    const y = snapToGrid(pos.y);
+    
+    const newShapeBase = {
+        x,
+        y,
+        stroke: 'black',
+        rotation: 0,
+    };
+
+    if (tool === 'rect') {
+      addShape({
+        ...newShapeBase,
+        type: 'rect',
+        width: 0,
+        height: 0,
+      });
+    } else if (tool === 'circle') {
+      addShape({
+        ...newShapeBase,
+        type: 'circle',
+        radius: 0,
+      });
+    } else if (tool === 'line') {
+      addShape({
+        ...newShapeBase,
+        type: 'line',
+        x, 
+        y, 
+        points: [0, 0, 0, 0], // Points relative to origin
+      });
+    }
+
+    // Get the ID of the newly added shape
+    const currentShapes = useStore.getState().shapes;
+    const newShape = currentShapes[currentShapes.length - 1];
+    if (newShape) {
+        drawingShapeId.current = newShape.id;
+        setIsDrawing(true);
+    }
+  };
+
+  const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const stage = e.target.getStage();
+    const pos = stage?.getPointerPosition();
+
+    if (selectionBox && pos) {
+        setSelectionBox(prev => prev ? ({ ...prev, currentX: pos.x, currentY: pos.y }) : null);
+        return;
+    }
+
+    if (!isDrawing || !drawingShapeId.current) return;
+    if (!pos) return;
+
+    const currentShapes = useStore.getState().shapes;
+    const shape = currentShapes.find(s => s.id === drawingShapeId.current);
+    if (!shape) return;
+
+    const currentX = pos.x; 
+    const currentY = pos.y;
+    
+    // Snap the mouse position for the end point
+    let snapX = snapToGrid(currentX);
+    let snapY = snapToGrid(currentY);
+
+    const isShift = e.evt.shiftKey;
+
+    if (shape.type === 'rect') {
+      let width = snapX - shape.x;
+      let height = snapY - shape.y;
+
+      if (isShift) {
+        // Constrain to square
+        const side = Math.max(Math.abs(width), Math.abs(height));
+        width = width > 0 ? side : -side;
+        height = height > 0 ? side : -side;
+      }
+
+      updateShape(shape.id, {
+        width,
+        height,
+      });
+    } else if (shape.type === 'circle') {
+      const dx = snapX - shape.x;
+      const dy = snapY - shape.y;
+      // Normal radius calculation
+      let radius = Math.sqrt(dx * dx + dy * dy);
+      
+      if (isShift) {
+          if (Math.abs(dx) > Math.abs(dy)) {
+              snapY = shape.y; // Snap Y to center Y
+          } else {
+              snapX = shape.x; // Snap X to center X
+          }
+          const newDx = snapX - shape.x;
+          const newDy = snapY - shape.y;
+          radius = Math.sqrt(newDx * newDx + newDy * newDy);
+      }
+      
+      updateShape(shape.id, {
+        radius,
+      });
+    } else if (shape.type === 'line') {
+      // Logic for Ortho mode
+      let endX = snapX - shape.x;
+      let endY = snapY - shape.y;
+
+      if (isShift) {
+          if (Math.abs(endX) > Math.abs(endY)) {
+              endY = 0; // Lock to horizontal (relative 0)
+          } else {
+              endX = 0; // Lock to vertical (relative 0)
+          }
+      }
+
+      updateShape(shape.id, {
+        points: [0, 0, endX, endY],
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (selectionBox) {
+        const { startX, startY, currentX, currentY } = selectionBox;
+        const isWindowSelection = currentY > startY; // Down -> Window (Blue)
+        
+        const rect = {
+            x: Math.min(startX, currentX),
+            y: Math.min(startY, currentY),
+            width: Math.abs(currentX - startX),
+            height: Math.abs(currentY - startY)
+        };
+
+        if (rect.width > 2 && rect.height > 2) { 
+            const idsToSelect: string[] = [];
+            shapes.forEach(shape => {
+                let match = false;
+                if (isWindowSelection) {
+                    match = isShapeInRect(shape, rect);
+                } else {
+                    match = doesShapeIntersectRect(shape, rect);
+                }
+                
+                if (match) {
+                    idsToSelect.push(shape.id);
+                }
+            });
+            
+            if (idsToSelect.length > 0) {
+                 selectShape(idsToSelect);
+            }
+        }
+        setSelectionBox(null);
+    }
+
+    setIsDrawing(false);
+    drawingShapeId.current = null;
+  };
+
+  const handleTrim = (targetId: string, clickX: number, clickY: number) => {
+      const targetShape = shapes.find(s => s.id === targetId);
+      if (!targetShape || targetShape.type !== 'line') {
+          // Can only trim lines for now
+          return;
+      }
+
+      const p1 = { x: targetShape.x + (targetShape.points?.[0] || 0), y: targetShape.y + (targetShape.points?.[1] || 0) };
+      const p2 = { x: targetShape.x + (targetShape.points?.[2] || 0), y: targetShape.y + (targetShape.points?.[3] || 0) };
+
+      // Find all intersections with other shapes
+      const intersections: { t: number, point: { x: number, y: number } }[] = [];
+
+      shapes.forEach(other => {
+          if (other.id === targetId) return;
+
+          const otherLines: { p1: { x: number, y: number }, p2: { x: number, y: number } }[] = [];
+
+          if (other.type === 'line') {
+              otherLines.push({
+                  p1: { x: other.x + (other.points?.[0] || 0), y: other.y + (other.points?.[1] || 0) },
+                  p2: { x: other.x + (other.points?.[2] || 0), y: other.y + (other.points?.[3] || 0) }
+              });
+          } else if (other.type === 'rect') {
+             // Convert rect to 4 lines
+             const rectLines = getRectLines(other.x, other.y, other.width || 0, other.height || 0, other.rotation);
+             rectLines.forEach(l => {
+                 otherLines.push({ p1: l[0], p2: l[1] });
+             });
+          }
+          // Circle intersection unimplemented for now
+
+          otherLines.forEach(line => {
+              const intersection = getLineIntersection(p1, p2, line.p1, line.p2);
+              if (intersection) {
+                  // Calculate t (0 to 1) along target line
+                  // t = distance(p1, intersection) / distance(p1, p2)
+                  const distTotal = distance(p1, p2);
+                  const distInt = distance(p1, intersection);
+                  const t = distInt / distTotal;
+                  
+                  intersections.push({ t, point: intersection });
+              }
+          });
+      });
+
+      // Sort intersections by t
+      intersections.sort((a, b) => a.t - b.t);
+
+      // Create segments (0 -> t1, t1 -> t2, ... tn -> 1)
+      const ts = [0, ...intersections.map(i => i.t), 1];
+      
+      // Find which segment was clicked
+      const lineLen = distance(p1, p2);
+      if (lineLen === 0) return;
+      
+      const vx = p2.x - p1.x;
+      const vy = p2.y - p1.y;
+      
+      const ux = clickX - p1.x;
+      const uy = clickY - p1.y;
+
+      const tClick = (ux * vx + uy * vy) / (lineLen * lineLen);
+
+      let removeIndex = -1;
+      for (let i = 0; i < ts.length - 1; i++) {
+          if (tClick >= ts[i] && tClick <= ts[i+1]) {
+              removeIndex = i;
+              break;
+          }
+      }
+
+      if (removeIndex === -1) return;
+
+      if (intersections.length === 0) {
+          deleteShape(targetId);
+          return;
+      }
+
+      const linesToCreate: Shape[] = [];
+      
+      if (removeIndex > 0) {
+          const startPt = p1;
+          const endPt = intersections[removeIndex - 1].point; 
+          
+          linesToCreate.push({
+              id: '', 
+              type: 'line',
+              x: startPt.x,
+              y: startPt.y,
+              points: [0, 0, endPt.x - startPt.x, endPt.y - startPt.y],
+              stroke: targetShape.stroke,
+              rotation: 0
+          });
+      }
+
+      if (removeIndex < ts.length - 2) {
+          const startPt = intersections[removeIndex].point;
+          const endPt = p2;
+          
+          linesToCreate.push({
+              id: '',
+              type: 'line',
+              x: startPt.x,
+              y: startPt.y,
+              points: [0, 0, endPt.x - startPt.x, endPt.y - startPt.y],
+              stroke: targetShape.stroke,
+              rotation: 0
+          });
+      }
+
+      deleteShape(targetId);
+      linesToCreate.forEach(l => addShape(l));
+  };
+
+  // Grid generation
+  const renderGrid = () => {
+    const lines = [];
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    for (let i = 0; i < width / GRID_SIZE; i++) {
+      lines.push(
+        <Line
+          key={`v-${i}`}
+          points={[i * GRID_SIZE, 0, i * GRID_SIZE, height]}
+          stroke="#e5e7eb"
+          strokeWidth={1}
+        />
+      );
+    }
+    for (let j = 0; j < height / GRID_SIZE; j++) {
+      lines.push(
+        <Line
+          key={`h-${j}`}
+          points={[0, j * GRID_SIZE, width, j * GRID_SIZE]}
+          stroke="#e5e7eb"
+          strokeWidth={1}
+        />
+      );
+    }
+    return lines;
+  };
+
+  return (
+    <Stage
+      width={window.innerWidth}
+      height={window.innerHeight}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      className={`bg-gray-50 ${tool === 'trim' || tool === 'eraser' ? 'cursor-cell' : 'cursor-crosshair'}`}
+    >
+      <Layer>
+        {renderGrid()}
+        {shapes.map((shape) => (
+          <ShapeObj
+            key={shape.id}
+            shape={shape}
+            isSelected={selectedIds.includes(shape.id)}
+            onSelect={() => selectShape(shape.id)}
+            onChange={(newAttrs) => updateShape(shape.id, newAttrs)}
+            onTrim={(e) => {
+                const stage = e.target.getStage();
+                const pos = stage?.getPointerPosition();
+                if (pos) {
+                   handleTrim(shape.id, pos.x, pos.y);
+                }
+            }}
+          />
+        ))}
+        {selectionBox && (
+            <Rect
+                x={Math.min(selectionBox.startX, selectionBox.currentX)}
+                y={Math.min(selectionBox.startY, selectionBox.currentY)}
+                width={Math.abs(selectionBox.currentX - selectionBox.startX)}
+                height={Math.abs(selectionBox.currentY - selectionBox.startY)}
+                fill={selectionBox.currentY > selectionBox.startY ? 'rgba(0, 0, 255, 0.1)' : 'rgba(0, 255, 0, 0.1)'}
+                stroke={selectionBox.currentY > selectionBox.startY ? 'blue' : 'green'}
+                dash={[5, 5]}
+            />
+        )}
+      </Layer>
+    </Stage>
+  );
+};
