@@ -3,22 +3,68 @@ import { Stage, Layer, Line, Rect } from 'react-konva';
 import { useStore, type Shape } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
-import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIntersectRect } from '../utils/geometry';
+import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIntersectRect, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
+import { SelectModeVertexHighlight, findClosestSnapPoint, handleVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
+import { constrainToSquare, constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
 
 const GRID_SIZE = 20;
 
 export const Canvas: React.FC = () => {
-  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, setVertexEditMode, vertexEditMode } = useStore();
+  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, setVertexEditMode } = useStore();
   const [isDrawing, setIsDrawing] = useState(false);
   const drawingShapeId = useRef<string | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const [hoveredSnapPoint, setHoveredSnapPoint] = useState<SnapPoint | null>(null);
+  const [draggingVertex, setDraggingVertex] = useState<{ shapeId: string; index: number; startX: number; startY: number } | null>(null);
   
   // Snap function
   const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
 
+  // Find snap point (vertex of other shapes)
+  const findSnapPoint = (x: number, y: number, excludeShapeId?: string | null): Point | null => {
+      let closestPoint: Point | null = null;
+      let minDist = 10; // Snap threshold
+
+      shapes.forEach(shape => {
+          if (excludeShapeId && shape.id === excludeShapeId) return;
+          
+          const vertices = getShapeVertices(shape);
+          vertices.forEach(v => {
+              const d = Math.sqrt(Math.pow(v.x - x, 2) + Math.pow(v.y - y, 2));
+              if (d < minDist) {
+                  minDist = d;
+                  closestPoint = v;
+              }
+          });
+
+          // Check midpoints
+          const midpoints = getShapeMidpoints(shape);
+          midpoints.forEach(m => {
+              const d = Math.sqrt(Math.pow(m.x - x, 2) + Math.pow(m.y - y, 2));
+              if (d < minDist) {
+                  minDist = d;
+                  closestPoint = m;
+              }
+          });
+      });
+
+      return closestPoint;
+  };
+
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Only allow left click for drawing/selecting
     if (e.evt.button !== 0) return;
+
+    // Check if we are clicking a highlighted vertex to drag
+    if (tool === 'select' && hoveredSnapPoint && hoveredSnapPoint.type === 'vertex') {
+        setDraggingVertex({ 
+            shapeId: hoveredSnapPoint.shapeId, 
+            index: hoveredSnapPoint.index,
+            startX: hoveredSnapPoint.x,
+            startY: hoveredSnapPoint.y
+        });
+        return;
+    }
 
     // If clicking on stage (empty area)
     const clickedOnEmpty = e.target === e.target.getStage();
@@ -47,8 +93,23 @@ export const Canvas: React.FC = () => {
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
-    const x = snapToGrid(pos.x);
-    const y = snapToGrid(pos.y);
+    // Check for Alt key to enable snapping
+    const isSnappingEnabled = e.evt.altKey;
+
+    let x = pos.x;
+    let y = pos.y;
+
+    if (isSnappingEnabled) {
+        x = snapToGrid(pos.x);
+        y = snapToGrid(pos.y);
+
+        // Check for vertex/midpoint snap for start point
+        const vertexSnap = findSnapPoint(pos.x, pos.y);
+        if (vertexSnap) {
+            x = vertexSnap.x;
+            y = vertexSnap.y;
+        }
+    }
 
     if (tool === 'polygon') {
       if (isDrawing && drawingShapeId.current) {
@@ -127,14 +188,67 @@ export const Canvas: React.FC = () => {
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
+    if (!pos) return;
 
-    if (selectionBox && pos) {
+    // 1. Vertex Dragging (Select Mode)
+    if (draggingVertex && tool === 'select') {
+        const mouseX = pos.x;
+        const mouseY = pos.y;
+        
+        const isSnappingEnabled = e.evt.altKey;
+        const isOrthoEnabled = e.evt.shiftKey;
+        
+        let newX = mouseX;
+        let newY = mouseY;
+        
+        // Apply ortho constraint first (relative to start position)
+        if (isOrthoEnabled) {
+            const constrained = constrainToAxis(
+                { x: draggingVertex.startX, y: draggingVertex.startY },
+                { x: mouseX, y: mouseY }
+            );
+            newX = constrained.x;
+            newY = constrained.y;
+        }
+        
+        // Then apply grid snapping if enabled
+        if (isSnappingEnabled) {
+             newX = snapToGrid(newX);
+             newY = snapToGrid(newY);
+        }
+
+        handleVertexDrag(draggingVertex, newX, newY, shapes, updateShape);
+             
+         // Update the visual highlight position to follow the mouse
+         setHoveredSnapPoint({
+             shapeId: draggingVertex.shapeId,
+             index: draggingVertex.index,
+             x: newX,
+             y: newY,
+             type: 'vertex'
+         });
+        return;
+    }
+
+    if (selectionBox) {
         setSelectionBox(prev => prev ? ({ ...prev, currentX: pos.x, currentY: pos.y }) : null);
         return;
     }
 
+    // Check for Alt key for highlighting and snapping
+    const isSnappingEnabled = e.evt.altKey;
+
+    // 2. Snap Point Highlight (Select Mode OR Drawing Mode)
+    // In drawing mode (line, rect, etc), we still want to highlight vertices/midpoints to show snap targets
+    if (isSnappingEnabled && ((tool === 'select' && !isDrawing) || (tool !== 'select' && !isDrawing))) {
+        const closest = findClosestSnapPoint(pos, shapes);
+        setHoveredSnapPoint(closest);
+    } else {
+        setHoveredSnapPoint(null);
+    }
+
+    // 3. Drawing Logic
     if (!isDrawing || !drawingShapeId.current) return;
-    if (!pos) return;
 
     const currentShapes = useStore.getState().shapes;
     const shape = currentShapes.find(s => s.id === drawingShapeId.current);
@@ -143,9 +257,20 @@ export const Canvas: React.FC = () => {
     const currentX = pos.x; 
     const currentY = pos.y;
     
-    // Snap the mouse position for the end point
-    let snapX = snapToGrid(currentX);
-    let snapY = snapToGrid(currentY);
+    // Snap logic: Check for vertex snap first
+    let snapX = currentX;
+    let snapY = currentY;
+    
+    if (isSnappingEnabled) {
+        const vertexSnap = findSnapPoint(currentX, currentY, shape.id); // Don't snap to self
+        if (vertexSnap) {
+            snapX = vertexSnap.x;
+            snapY = vertexSnap.y;
+        } else {
+            snapX = snapToGrid(currentX);
+            snapY = snapToGrid(currentY);
+        }
+    }
 
     const isShift = e.evt.shiftKey;
 
@@ -154,10 +279,10 @@ export const Canvas: React.FC = () => {
       let height = snapY - shape.y;
 
       if (isShift) {
-        // Constrain to square
-        const side = Math.max(Math.abs(width), Math.abs(height));
-        width = width > 0 ? side : -side;
-        height = height > 0 ? side : -side;
+        // Constrain to square using ortho mode
+        const constrained = constrainToSquare(width, height);
+        width = constrained.width;
+        height = constrained.height;
       }
 
       updateShape(shape.id, {
@@ -165,21 +290,16 @@ export const Canvas: React.FC = () => {
         height,
       });
     } else if (shape.type === 'circle' || shape.type === 'triangle') {
+      // For circle/triangle, constrain to axis means radius is measured along X or Y only
+      if (isShift) {
+          const constrained = constrainToAxis({ x: shape.x, y: shape.y }, { x: snapX, y: snapY });
+          snapX = constrained.x;
+          snapY = constrained.y;
+      }
+      
       const dx = snapX - shape.x;
       const dy = snapY - shape.y;
-      // Normal radius calculation
-      let radius = Math.sqrt(dx * dx + dy * dy);
-      
-      if (isShift) {
-          if (Math.abs(dx) > Math.abs(dy)) {
-              snapY = shape.y; // Snap Y to center Y
-          } else {
-              snapX = shape.x; // Snap X to center X
-          }
-          const newDx = snapX - shape.x;
-          const newDy = snapY - shape.y;
-          radius = Math.sqrt(newDx * newDx + newDy * newDy);
-      }
+      const radius = Math.sqrt(dx * dx + dy * dy);
       
       updateShape(shape.id, {
         radius,
@@ -190,10 +310,23 @@ export const Canvas: React.FC = () => {
       let endY = snapY - shape.y;
 
       if (isShift) {
-          if (Math.abs(endX) > Math.abs(endY)) {
-              endY = 0; // Lock to horizontal (relative 0)
-          } else {
-              endX = 0; // Lock to vertical (relative 0)
+          // Use ortho mode to constrain to H/V
+          const constrained = constrainLineToOrtho(0, 0, endX, endY);
+          endX = constrained.endX;
+          endY = constrained.endY;
+      } else {
+          // Auto-snap to vertical/horizontal if close
+          const angle = Math.atan2(endY, endX) * 180 / Math.PI;
+          const absAngle = Math.abs(angle);
+          const threshold = 5; // degrees
+
+          // Horizontal: 0 or 180 (which is +/- 180)
+          if (absAngle < threshold || Math.abs(absAngle - 180) < threshold) {
+              endY = 0;
+          }
+          // Vertical: 90 or -90
+          else if (Math.abs(absAngle - 90) < threshold) {
+              endX = 0;
           }
       }
 
@@ -201,8 +334,18 @@ export const Canvas: React.FC = () => {
         points: [0, 0, endX, endY],
       });
     } else if (shape.type === 'polygon') {
-       const relativeX = snapX - shape.x;
-       const relativeY = snapY - shape.y;
+       let relativeX = snapX - shape.x;
+       let relativeY = snapY - shape.y;
+       
+       // Apply ortho constraint for polygon drawing
+       if (isShift && shape.points && shape.points.length >= 2) {
+           // Get the previous point
+           const prevX = shape.points[shape.points.length - 4] ?? 0;
+           const prevY = shape.points[shape.points.length - 3] ?? 0;
+           const constrained = constrainLineToOrtho(prevX, prevY, relativeX, relativeY);
+           relativeX = constrained.endX;
+           relativeY = constrained.endY;
+       }
        
        const newPoints = [...(shape.points || [])];
        // Update last point
@@ -215,6 +358,8 @@ export const Canvas: React.FC = () => {
   };
 
   const handleMouseUp = () => {
+    setDraggingVertex(null); // Stop dragging vertex
+
     if (isDrawing && drawingShapeId.current) {
         const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
         if (shape) {
@@ -316,6 +461,14 @@ export const Canvas: React.FC = () => {
 
   const handleContextMenu = (e: Konva.KonvaEventObject<PointerEvent>) => {
       e.evt.preventDefault(); // Prevent default browser context menu
+      
+      // If right-clicking on empty area, switch to select tool
+      const clickedOnEmpty = e.target === e.target.getStage();
+      if (clickedOnEmpty) {
+          useStore.getState().setTool('select');
+          return;
+      }
+      
       if (tool === 'polygon' && isDrawing && drawingShapeId.current) {
           const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
           if (shape && shape.points) {
@@ -339,7 +492,7 @@ export const Canvas: React.FC = () => {
       }
   };
 
-  const handleDblClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  const handleDblClick = () => {
        if (tool === 'polygon' && isDrawing && drawingShapeId.current) {
           const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
           if (shape && shape.points) {
@@ -564,6 +717,7 @@ export const Canvas: React.FC = () => {
                 dash={[5, 5]}
             />
         )}
+        <SelectModeVertexHighlight hoveredSnapPoint={hoveredSnapPoint} />
       </Layer>
     </Stage>
   );

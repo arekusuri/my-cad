@@ -200,3 +200,114 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
     
     return false;
 }
+
+export function getShapeVertices(shape: Shape): Point[] {
+    const vertices: Point[] = [];
+    
+    if (shape.type === 'rect') {
+        const corners = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation).map(line => line[0]);
+        vertices.push(...corners);
+    } else if (shape.type === 'line' || shape.type === 'polygon') {
+        const points = shape.points || [];
+        const rad = (shape.rotation * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        
+        for (let i = 0; i < points.length; i += 2) {
+            const px = points[i];
+            const py = points[i+1];
+            
+            const rx = px * cos - py * sin;
+            const ry = px * sin + py * cos;
+            
+            vertices.push({ x: shape.x + rx, y: shape.y + ry });
+        }
+    } else if (shape.type === 'triangle') {
+        if (shape.points && shape.points.length >= 6) {
+             // If points exist, use them directly (similar to polygon)
+             const points = shape.points;
+             const rad = (shape.rotation * Math.PI) / 180;
+             const cos = Math.cos(rad);
+             const sin = Math.sin(rad);
+             
+             for (let i = 0; i < points.length; i += 2) {
+                const px = points[i];
+                const py = points[i+1];
+                
+                const rx = px * cos - py * sin;
+                const ry = px * sin + py * cos;
+                
+                vertices.push({ x: shape.x + rx, y: shape.y + ry });
+            }
+        } else {
+            // Fallback to radius based regular polygon
+            const r = shape.radius || 0;
+            const rad = (shape.rotation * Math.PI) / 180;
+            
+            for (let i = 0; i < 3; i++) {
+                 // Angle for vertex i in local space
+                 const angle = (i * 2 * Math.PI / 3) - Math.PI / 2; // -PI/2 to start at top
+                 const px = r * Math.cos(angle);
+                 const py = r * Math.sin(angle);
+                 
+                 // Rotate by shape rotation
+                 const rx = px * Math.cos(rad) - py * Math.sin(rad);
+                 const ry = px * Math.sin(rad) + py * Math.cos(rad);
+                 
+                 vertices.push({ x: shape.x + rx, y: shape.y + ry });
+            }
+        }
+    } else if (shape.type === 'circle') {
+        // Center
+        vertices.push({ x: shape.x, y: shape.y });
+        // Maybe quadrants?
+        // Right
+        vertices.push({ x: shape.x + (shape.radius || 0), y: shape.y });
+    }
+    
+    return vertices;
+}
+
+export function getShapeMidpoints(shape: Shape): Point[] {
+    const midpoints: Point[] = [];
+    
+    if (shape.type === 'rect') {
+        const lines = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation);
+        lines.forEach(line => {
+             const p1 = line[0];
+             const p2 = line[1];
+             midpoints.push({
+                 x: (p1.x + p2.x) / 2,
+                 y: (p1.y + p2.y) / 2
+             });
+        });
+    } else if (shape.type === 'line' || shape.type === 'polygon' || shape.type === 'triangle') {
+        const vertices = getShapeVertices(shape);
+        // For line/polygon/triangle, vertices are ordered.
+        // Line: 2 points -> 1 midpoint
+        // Polygon: N points -> N segments (if closed) or N-1 (if open? Polygon usually closed). 
+        // Our polygon tool seems to draw open paths until closed, but `getShapeVertices` returns points.
+        // Assuming polygon is closed for midpoints if it has >= 3 points? 
+        // Or just segments between sequential points.
+        
+        const numPoints = vertices.length;
+        if (numPoints < 2) return midpoints;
+
+        const isClosed = shape.type === 'polygon' || shape.type === 'triangle' || shape.type === 'rect'; // Rect handled above
+        // For polygon, we treat it as closed loop segments
+        // For line, just segments
+        
+        const limit = isClosed ? numPoints : numPoints - 1;
+        
+        for (let i = 0; i < limit; i++) {
+            const p1 = vertices[i];
+            const p2 = vertices[(i + 1) % numPoints];
+            midpoints.push({
+                x: (p1.x + p2.x) / 2,
+                y: (p1.y + p2.y) / 2
+            });
+        }
+    }
+    
+    return midpoints;
+}
