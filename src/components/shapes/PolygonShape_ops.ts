@@ -1,0 +1,85 @@
+import type { Shape } from '../../store/useStore';
+import Konva from 'konva';
+
+export const getPolyTransformAttrs = (
+  node: Konva.Line,
+  shape: Shape
+): Partial<Shape> => {
+  const scaleX = node.scaleX();
+  const scaleY = node.scaleY();
+
+  // Reset scale to 1 and adjust dimensions instead
+  node.scaleX(1);
+  node.scaleY(1);
+
+  const points = shape.points || [0, 0, 0, 0];
+  const newPoints = points.map((p, i) => {
+      return i % 2 === 0 ? p * scaleX : p * scaleY;
+  });
+
+  return {
+    x: node.x(),
+    y: node.y(),
+    rotation: node.rotation(),
+    points: newPoints,
+  };
+};
+
+export const calculateVertexDrag = (
+  e: Konva.KonvaEventObject<DragEvent>,
+  shape: Shape,
+  index: number,
+  isVertexSelected: boolean,
+  selectedVertexIndices: number[] | undefined
+): { newPoints: number[] } => {
+    // Inverse transform to get local coordinate
+    const newAbsX = e.target.x();
+    const newAbsY = e.target.y();
+    
+    const rad = (shape.rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    // Subtract origin
+    const dx = newAbsX - shape.x;
+    const dy = newAbsY - shape.y;
+    
+    // Rotate back (-rotation)
+    const newPx = dx * cos + dy * sin;
+    const newPy = -dx * sin + dy * cos;
+    
+    // Calculate delta from current pos
+    const currentPx = shape.points![index * 2];
+    const currentPy = shape.points![index * 2 + 1];
+    const deltaX = newPx - currentPx;
+    const deltaY = newPy - currentPy;
+    
+    const newPoints = [...(shape.points || [])];
+    
+    // Move all selected vertices of this shape
+    const indicesToMove = isVertexSelected ? (selectedVertexIndices || [index]) : [index];
+    
+    indicesToMove.forEach(idx => {
+        if (idx * 2 + 1 < newPoints.length) {
+            newPoints[idx * 2] += deltaX;
+            newPoints[idx * 2 + 1] += deltaY;
+        }
+    });
+
+    return { newPoints };
+}
+
+export const calculateVertexPos = (shape: Shape, i: number) => {
+     const px = shape.points![i * 2];
+     const py = shape.points![i * 2 + 1];
+     
+     // Calculate absolute position for initial render
+     const rad = (shape.rotation * Math.PI) / 180;
+     const cos = Math.cos(rad);
+     const sin = Math.sin(rad);
+     
+     const absX = shape.x + px * cos - py * sin;
+     const absY = shape.y + px * sin + py * cos;
+     return { x: absX, y: absY };
+}
+

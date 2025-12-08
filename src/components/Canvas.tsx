@@ -8,7 +8,7 @@ import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIn
 const GRID_SIZE = 20;
 
 export const Canvas: React.FC = () => {
-  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape } = useStore();
+  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices } = useStore();
   const [isDrawing, setIsDrawing] = useState(false);
   const drawingShapeId = useRef<string | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
@@ -249,23 +249,62 @@ export const Canvas: React.FC = () => {
             height: Math.abs(currentY - startY)
         };
 
-        if (rect.width > 2 && rect.height > 2) { 
-            const idsToSelect: string[] = [];
-            shapes.forEach(shape => {
-                let match = false;
-                if (isWindowSelection) {
-                    match = isShapeInRect(shape, rect);
-                } else {
-                    match = doesShapeIntersectRect(shape, rect);
+        if (rect.width > 2 && rect.height > 2) {
+            // Check for vertex selection first if we have selected shapes
+            const newSelectedVertices: Record<string, number[]> = {};
+            let foundVertices = false;
+
+            selectedIds.forEach(id => {
+                const shape = shapes.find(s => s.id === id);
+                if (!shape || (shape.type !== 'line' && shape.type !== 'polygon') || !shape.points) return;
+
+                const indices: number[] = [];
+                const rad = (shape.rotation * Math.PI) / 180;
+                const cos = Math.cos(rad);
+                const sin = Math.sin(rad);
+
+                for (let i = 0; i < shape.points.length / 2; i++) {
+                    const px = shape.points[i * 2];
+                    const py = shape.points[i * 2 + 1];
+                    const absX = shape.x + px * cos - py * sin;
+                    const absY = shape.y + px * sin + py * cos;
+
+                    // Check if point is inside selection rect
+                    if (absX >= rect.x && absX <= rect.x + rect.width &&
+                        absY >= rect.y && absY <= rect.y + rect.height) {
+                        indices.push(i);
+                    }
                 }
-                
-                if (match) {
-                    idsToSelect.push(shape.id);
+
+                if (indices.length > 0) {
+                    newSelectedVertices[id] = indices;
+                    foundVertices = true;
                 }
             });
-            
-            if (idsToSelect.length > 0) {
-                 selectShape(idsToSelect);
+
+            if (foundVertices) {
+                selectVertices(newSelectedVertices);
+            } else {
+                // Normal shape selection
+                const idsToSelect: string[] = [];
+                shapes.forEach(shape => {
+                    let match = false;
+                    if (isWindowSelection) {
+                        match = isShapeInRect(shape, rect);
+                    } else {
+                        match = doesShapeIntersectRect(shape, rect);
+                    }
+                    
+                    if (match) {
+                        idsToSelect.push(shape.id);
+                    }
+                });
+                
+                if (idsToSelect.length > 0) {
+                        selectShape(idsToSelect);
+                } else {
+                        selectShape(null); // Deselect if nothing found
+                }
             }
         }
         setSelectionBox(null);

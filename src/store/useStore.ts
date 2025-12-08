@@ -20,6 +20,7 @@ export interface Shape {
 interface StoreState {
   shapes: Shape[];
   selectedIds: string[];
+  selectedVertexIndices: Record<string, number[]>; // shapeId -> array of vertex indices
   tool: 'select' | 'rect' | 'circle' | 'line' | 'polygon' | 'eraser' | 'trim';
   isShiftPressed: boolean;
   
@@ -27,6 +28,7 @@ interface StoreState {
   addShape: (shape: Omit<Shape, 'id'>) => void;
   updateShape: (id: string, attrs: Partial<Shape>) => void;
   selectShape: (id: string | string[] | null) => void;
+  selectVertices: (indices: Record<string, number[]>) => void;
   deleteShape: (id: string) => void;
   setShiftPressed: (pressed: boolean) => void;
 }
@@ -34,10 +36,11 @@ interface StoreState {
 export const useStore = create<StoreState>((set) => ({
   shapes: [],
   selectedIds: [],
+  selectedVertexIndices: {},
   tool: 'select',
   isShiftPressed: false,
 
-  setTool: (tool) => set({ tool, selectedIds: [] }),
+  setTool: (tool) => set({ tool, selectedIds: [], selectedVertexIndices: {} }),
   addShape: (shape) => set((state) => ({ 
     shapes: [...state.shapes, { ...shape, id: uuidv4() }] 
   })),
@@ -45,11 +48,14 @@ export const useStore = create<StoreState>((set) => ({
     shapes: state.shapes.map((s) => (s.id === id ? { ...s, ...attrs } : s))
   })),
   selectShape: (id) => set({ 
-    selectedIds: id === null ? [] : Array.isArray(id) ? id : [id] 
+    selectedIds: id === null ? [] : Array.isArray(id) ? id : [id],
+    selectedVertexIndices: {} // Clear vertex selection when shape selection changes
   }),
+  selectVertices: (indices) => set({ selectedVertexIndices: indices }),
   deleteShape: (id) => set((state) => ({
     shapes: state.shapes.filter((s) => s.id !== id),
-    selectedIds: state.selectedIds.filter((sid) => sid !== id)
+    selectedIds: state.selectedIds.filter((sid) => sid !== id),
+    selectedVertexIndices: { ...state.selectedVertexIndices, [id]: [] }
   })),
   setShiftPressed: (pressed) => set({ isShiftPressed: pressed }),
 }));
