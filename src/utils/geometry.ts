@@ -118,7 +118,7 @@ export function isShapeInRect(shape: Shape, rect: { x: number; y: number; width:
         const r = shape.radius || 0;
         // Check bounding box of circle
         return contains(shape.x - r, shape.y - r) && contains(shape.x + r, shape.y + r);
-    } else if (shape.type === 'segment' || shape.type === 'polygon') {
+    } else if (shape.type === 'segment') {
         const points = shape.points || [];
         const rad = (shape.rotation * Math.PI) / 180;
         const cos = Math.cos(rad);
@@ -168,7 +168,7 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
         const dy = shape.y - cy;
         return (dx * dx + dy * dy) <= ((shape.radius || 0) * (shape.radius || 0));
         
-    } else if (shape.type === 'segment' || shape.type === 'polygon') {
+    } else if (shape.type === 'segment') {
          const points = shape.points || [];
          const rad = (shape.rotation * Math.PI) / 180;
          const cos = Math.cos(rad);
@@ -185,7 +185,7 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
 
         // Check segments
         const numPoints = transformedPoints.length;
-        const numSegments = shape.type === 'polygon' ? numPoints : numPoints - 1;
+        const numSegments = numPoints - 1; // Segments are open (not closed)
 
         for (let i = 0; i < numSegments; i++) {
             const p1 = transformedPoints[i];
@@ -207,7 +207,7 @@ export function getShapeVertices(shape: Shape): Point[] {
     if (shape.type === 'rect') {
         const corners = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation).map(line => line[0]);
         vertices.push(...corners);
-    } else if (shape.type === 'segment' || shape.type === 'polygon') {
+    } else if (shape.type === 'segment') {
         const points = shape.points || [];
         const rad = (shape.rotation * Math.PI) / 180;
         const cos = Math.cos(rad);
@@ -224,7 +224,7 @@ export function getShapeVertices(shape: Shape): Point[] {
         }
     } else if (shape.type === 'triangle') {
         if (shape.points && shape.points.length >= 6) {
-             // If points exist, use them directly (similar to polygon)
+             // If points exist, use them directly
              const points = shape.points;
              const rad = (shape.rotation * Math.PI) / 180;
              const cos = Math.cos(rad);
@@ -240,7 +240,7 @@ export function getShapeVertices(shape: Shape): Point[] {
                 vertices.push({ x: shape.x + rx, y: shape.y + ry });
             }
         } else {
-            // Fallback to radius based regular polygon
+            // Fallback to radius based regular triangle
             const r = shape.radius || 0;
             const rad = (shape.rotation * Math.PI) / 180;
             
@@ -281,21 +281,16 @@ export function getShapeMidpoints(shape: Shape): Point[] {
                  y: (p1.y + p2.y) / 2
              });
         });
-    } else if (shape.type === 'segment' || shape.type === 'polygon' || shape.type === 'triangle') {
+    } else if (shape.type === 'segment' || shape.type === 'triangle') {
         const vertices = getShapeVertices(shape);
-        // For line/polygon/triangle, vertices are ordered.
-        // Line: 2 points -> 1 midpoint
-        // Polygon: N points -> N segments (if closed) or N-1 (if open? Polygon usually closed). 
-        // Our polygon tool seems to draw open paths until closed, but `getShapeVertices` returns points.
-        // Assuming polygon is closed for midpoints if it has >= 3 points? 
-        // Or just segments between sequential points.
+        // For segment/triangle, vertices are ordered.
+        // Segment: 2 points -> 1 midpoint
+        // Triangle: 3 points -> 3 segments (closed)
         
         const numPoints = vertices.length;
         if (numPoints < 2) return midpoints;
 
-        const isClosed = shape.type === 'polygon' || shape.type === 'triangle' || shape.type === 'rect'; // Rect handled above
-        // For polygon, we treat it as closed loop segments
-        // For line, just segments
+        const isClosed = shape.type === 'triangle'; // Triangle is closed, segment is open
         
         const limit = isClosed ? numPoints : numPoints - 1;
         

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 
-export type ShapeType = 'rect' | 'circle' | 'segment' | 'polygon' | 'triangle';
+export type ShapeType = 'rect' | 'circle' | 'segment' | 'triangle';
 
 export interface Shape {
   id: string;
@@ -22,10 +22,10 @@ interface StoreState {
   selectedIds: string[];
   selectedVertexIndices: Record<string, number[]>; // shapeId -> array of vertex indices
   vertexEditMode: boolean;
-  tool: 'select' | 'rect' | 'circle' | 'segment' | 'polygon' | 'triangle' | 'eraser' | 'trim';
+  tool: 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'eraser' | 'trim';
   isShiftPressed: boolean;
   
-  setTool: (tool: 'select' | 'rect' | 'circle' | 'segment' | 'polygon' | 'triangle' | 'eraser' | 'trim') => void;
+  setTool: (tool: 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'eraser' | 'trim') => void;
   setVertexEditMode: (enabled: boolean) => void;
   addShape: (shape: Omit<Shape, 'id'>) => void;
   updateShape: (id: string, attrs: Partial<Shape>) => void;

@@ -108,7 +108,7 @@ export const Canvas: React.FC = () => {
       }
     }
 
-    if (tool !== 'rect' && tool !== 'circle' && tool !== 'segment' && tool !== 'polygon' && tool !== 'triangle') return;
+    if (tool !== 'rect' && tool !== 'circle' && tool !== 'segment' && tool !== 'triangle') return;
 
     // Start drawing
     const stage = e.target.getStage();
@@ -131,35 +131,6 @@ export const Canvas: React.FC = () => {
             x = vertexSnap.x;
             y = vertexSnap.y;
         }
-    }
-
-    if (tool === 'polygon') {
-      if (isDrawing && drawingShapeId.current) {
-        // Continue drawing polygon
-        const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
-        if (shape && shape.points) {
-           const startX = shape.points[0];
-           const startY = shape.points[1];
-           
-           const relativeX = x - shape.x;
-           const relativeY = y - shape.y;
-
-           // Check if clicked near start point to close
-           if (shape.points.length >= 6 && Math.abs(relativeX - startX) < 10 && Math.abs(relativeY - startY) < 10) {
-               // Close shape: remove the last moving point
-               const newPoints = shape.points.slice(0, -2);
-               updateShape(shape.id, { points: newPoints });
-               setIsDrawing(false);
-               drawingShapeId.current = null;
-           } else {
-               // Add new point (duplicate last point which is being moved)
-               updateShape(shape.id, {
-                   points: [...shape.points, relativeX, relativeY]
-               });
-           }
-        }
-        return;
-      }
     }
     
     const newShapeBase = {
@@ -374,27 +345,6 @@ export const Canvas: React.FC = () => {
       updateShape(shape.id, {
         points: [0, 0, endX, endY],
       });
-    } else if (shape.type === 'polygon') {
-       let relativeX = snapX - shape.x;
-       let relativeY = snapY - shape.y;
-       
-       // Apply ortho constraint for polygon drawing
-       if (isShift && shape.points && shape.points.length >= 2) {
-           // Get the previous point
-           const prevX = shape.points[shape.points.length - 4] ?? 0;
-           const prevY = shape.points[shape.points.length - 3] ?? 0;
-           const constrained = constrainLineToOrtho(prevX, prevY, relativeX, relativeY);
-           relativeX = constrained.endX;
-           relativeY = constrained.endY;
-       }
-       
-       const newPoints = [...(shape.points || [])];
-       // Update last point
-       if (newPoints.length >= 2) {
-           newPoints[newPoints.length - 2] = relativeX;
-           newPoints[newPoints.length - 1] = relativeY;
-           updateShape(shape.id, { points: newPoints });
-       }
     }
   };
 
@@ -440,7 +390,7 @@ export const Canvas: React.FC = () => {
 
             selectedIds.forEach(id => {
                 const shape = shapes.find(s => s.id === id);
-                if (!shape || (shape.type !== 'segment' && shape.type !== 'polygon') || !shape.points) return;
+                if (!shape || shape.type !== 'segment' || !shape.points) return;
 
                 const indices: number[] = [];
                 const rad = (shape.rotation * Math.PI) / 180;
@@ -494,8 +444,6 @@ export const Canvas: React.FC = () => {
         setSelectionBox(null);
     }
 
-    if (tool === 'polygon' && isDrawing) return; // Don't stop drawing polygon on mouse up
-
     setIsDrawing(false);
     drawingShapeId.current = null;
   };
@@ -509,53 +457,10 @@ export const Canvas: React.FC = () => {
           useStore.getState().setTool('select');
           return;
       }
-      
-      if (tool === 'polygon' && isDrawing && drawingShapeId.current) {
-          const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
-          if (shape && shape.points) {
-               // Remove the last moving point
-               // Ensure we have enough points to form a polygon (at least 3 points: 6 coords)
-               // But usually polygon tools allow lines too. 
-               // If points < 6 (3 pts), and we remove 1, we have 2 pts (line). That's fine.
-               
-               if (shape.points.length >= 4) {
-                   const newPoints = shape.points.slice(0, -2);
-                   updateShape(shape.id, { points: newPoints });
-               } else {
-                   // Not enough points to keep, maybe delete? 
-                   // If only start point + moving point, and we cancel moving point -> just start point.
-                   // A single point is useless. Delete shape.
-                   deleteShape(shape.id);
-               }
-               setIsDrawing(false);
-               drawingShapeId.current = null;
-          }
-      }
   };
 
   const handleDblClick = () => {
-       if (tool === 'polygon' && isDrawing && drawingShapeId.current) {
-          const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
-          if (shape && shape.points) {
-               // Double click means: Click (Add P), Click (Add P_dup), DblClick.
-               // We also have the "moving point" appended after last click.
-               // So we have [..., P, P_dup, Moving].
-               // We want [..., P].
-               // So we need to remove the last 2 points (4 coords).
-               
-               if (shape.points.length >= 6) { // Need at least start + end + moving
-                   const newPoints = shape.points.slice(0, -4);
-                   updateShape(shape.id, { points: newPoints });
-                   setIsDrawing(false);
-                   drawingShapeId.current = null;
-               } else {
-                   // If we don't have enough points, just delete
-                   deleteShape(shape.id);
-                   setIsDrawing(false);
-                   drawingShapeId.current = null;
-               }
-          }
-       }
+      // No special double-click behavior needed
   };
 
   const handleTrim = (targetId: string, clickX: number, clickY: number) => {
@@ -587,14 +492,6 @@ export const Canvas: React.FC = () => {
              rectLines.forEach(l => {
                  otherLines.push({ p1: l[0], p2: l[1] });
              });
-          } else if (other.type === 'polygon') {
-              const points = other.points || [];
-              for (let i = 0; i < points.length; i += 2) {
-                  const p1 = { x: other.x + points[i], y: other.y + points[i+1] };
-                  const nextIndex = (i + 2) % points.length;
-                  const p2 = { x: other.x + points[nextIndex], y: other.y + points[nextIndex+1] };
-                  otherLines.push({ p1, p2 });
-              }
           }
           // Circle intersection unimplemented for now
 

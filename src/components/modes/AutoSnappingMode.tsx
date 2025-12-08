@@ -92,7 +92,7 @@ export const handleVertexDrag = (
     const shape = shapes.find(s => s.id === draggingVertex.shapeId);
     if (!shape) return;
 
-    if (shape.type === 'segment' || shape.type === 'polygon') {
+    if (shape.type === 'segment') {
         const points = [...(shape.points || [])];
         const idx = draggingVertex.index;
         if (idx * 2 + 1 < points.length) {
@@ -101,7 +101,7 @@ export const handleVertexDrag = (
             let relY = newY - shape.y;
             
             // For segments with ortho mode: make the segment horizontal or vertical
-            if (isOrthoMode && shape.type === 'segment' && points.length === 4) {
+            if (isOrthoMode && points.length === 4) {
                 // Segment has 2 points: [x1, y1, x2, y2]
                 // If dragging point 0 (start), constrain relative to point 1 (end)
                 // If dragging point 1 (end), constrain relative to point 0 (start)

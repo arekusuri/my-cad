@@ -4,7 +4,6 @@ import Konva from 'konva';
 import { RectShape } from './shapes/RectShape';
 import { CircleShape } from './shapes/CircleShape';
 import { SegmentShape } from './shapes/SegmentShape';
-import { PolygonShape } from './shapes/PolygonShape';
 import { TriangleShape } from './shapes/TriangleShape';
 
 interface ShapeObjProps {
@@ -25,8 +24,6 @@ export const ShapeObj: React.FC<ShapeObjProps> = (props) => {
       return <CircleShape {...props} />;
     case 'segment':
       return <SegmentShape {...props} />;
-    case 'polygon':
-      return <PolygonShape {...props} />;
     case 'triangle':
       return <TriangleShape {...props} />;
     default:
