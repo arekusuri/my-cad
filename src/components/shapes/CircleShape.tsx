@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Circle, Transformer } from 'react-konva';
 import type { Shape } from '../../store/useStore';
 import { useStore } from '../../store/useStore';
@@ -25,8 +25,11 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
   const trRef = useRef<Konva.Transformer>(null);
   const isShiftPressed = useStore((state) => state.isShiftPressed);
   const tool = useStore((state) => state.tool);
+  const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const [isDraggingRadius, setIsDraggingRadius] = useState(false);
+  const [isDraggingShape, setIsDraggingShape] = useState(false);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -62,10 +65,12 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
         onTap={handleClick}
         onDragStart={(e) => {
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
+          setIsDraggingShape(true);
         }}
         dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
         onDragEnd={(e) => {
           dragStartPos.current = null;
+          setIsDraggingShape(false);
           onChange({
             x: e.target.x(),
             y: e.target.y(),
@@ -79,13 +84,66 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
         }}
         ref={shapeRef}
       />
-      {isSelected && tool === 'select' && (
+      {isSelected && tool === 'select' && !vertexEditMode && (
         <Transformer
           ref={trRef}
           rotationSnaps={isShiftPressed ? [0, 90, 180, 270] : []}
           rotationSnapTolerance={20}
           boundBoxFunc={limitResizeBoundBoxFunc}
         />
+      )}
+      {isSelected && tool === 'select' && vertexEditMode && !isDraggingShape && (
+        <>
+           {/* Center Point */}
+           <Circle
+              x={shape.x}
+              y={shape.y}
+              radius={6}
+              fill="white"
+              stroke="#3b82f6"
+              strokeWidth={1}
+              draggable
+              onDragMove={(e) => {
+                  onChange({ x: e.target.x(), y: e.target.y() });
+              }}
+           />
+           {/* Radius Point */}
+           <Circle
+              // Only control position when not dragging to prevent snap-back during drag
+              x={!isDraggingRadius ? shape.x + (shape.radius || 0) * Math.cos((shape.rotation || 0) * Math.PI / 180) : undefined}
+              y={!isDraggingRadius ? shape.y + (shape.radius || 0) * Math.sin((shape.rotation || 0) * Math.PI / 180) : undefined}
+              radius={6}
+              fill="white"
+              stroke="#3b82f6"
+              strokeWidth={1}
+              draggable
+              dragBoundFunc={(pos) => {
+                  const rotationRad = (shape.rotation || 0) * Math.PI / 180;
+                  // Vector from center
+                  const dx = pos.x - shape.x;
+                  const dy = pos.y - shape.y;
+                  
+                  // Project onto rotation vector
+                  const uX = Math.cos(rotationRad);
+                  const uY = Math.sin(rotationRad);
+                  const dist = dx * uX + dy * uY;
+                  
+                  return {
+                      x: shape.x + dist * uX,
+                      y: shape.y + dist * uY
+                  };
+              }}
+              onDragStart={() => setIsDraggingRadius(true)}
+              onDragMove={(e) => {
+                  const dx = e.target.x() - shape.x;
+                  const dy = e.target.y() - shape.y;
+                  const newRadius = Math.sqrt(dx * dx + dy * dy);
+                  // Only update radius, keep original rotation
+                  onChange({ radius: newRadius });
+              }}
+              onDragEnd={() => setIsDraggingRadius(false)}
+           />
+        </>
       )}
     </>
   );

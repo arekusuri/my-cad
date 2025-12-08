@@ -21,10 +21,12 @@ interface StoreState {
   shapes: Shape[];
   selectedIds: string[];
   selectedVertexIndices: Record<string, number[]>; // shapeId -> array of vertex indices
+  vertexEditMode: boolean;
   tool: 'select' | 'rect' | 'circle' | 'line' | 'polygon' | 'triangle' | 'eraser' | 'trim';
   isShiftPressed: boolean;
   
   setTool: (tool: 'select' | 'rect' | 'circle' | 'line' | 'polygon' | 'triangle' | 'eraser' | 'trim') => void;
+  setVertexEditMode: (enabled: boolean) => void;
   addShape: (shape: Omit<Shape, 'id'>) => void;
   updateShape: (id: string, attrs: Partial<Shape>) => void;
   selectShape: (id: string | string[] | null) => void;
@@ -37,10 +39,12 @@ export const useStore = create<StoreState>((set) => ({
   shapes: [],
   selectedIds: [],
   selectedVertexIndices: {},
+  vertexEditMode: false,
   tool: 'select',
   isShiftPressed: false,
 
-  setTool: (tool) => set({ tool, selectedIds: [], selectedVertexIndices: {} }),
+  setTool: (tool) => set({ tool, selectedIds: [], selectedVertexIndices: {}, vertexEditMode: false }),
+  setVertexEditMode: (enabled) => set({ vertexEditMode: enabled }),
   addShape: (shape) => set((state) => ({ 
     shapes: [...state.shapes, { ...shape, id: uuidv4() }] 
   })),
@@ -49,7 +53,8 @@ export const useStore = create<StoreState>((set) => ({
   })),
   selectShape: (id) => set({ 
     selectedIds: id === null ? [] : Array.isArray(id) ? id : [id],
-    selectedVertexIndices: {} // Clear vertex selection when shape selection changes
+    selectedVertexIndices: {}, // Clear vertex selection when shape selection changes
+    vertexEditMode: false,
   }),
   selectVertices: (indices) => set({ selectedVertexIndices: indices }),
   deleteShape: (id) => set((state) => ({

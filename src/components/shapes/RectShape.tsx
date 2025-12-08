@@ -1,10 +1,10 @@
 import React, { useRef, useEffect } from 'react';
-import { Rect, Transformer } from 'react-konva';
+import { Rect, Transformer, Circle } from 'react-konva';
 import type { Shape } from '../../store/useStore';
 import { useStore } from '../../store/useStore';
 import Konva from 'konva';
 import { commonDragBoundFunc, limitResizeBoundBoxFunc } from './CommonShape_ops';
-import { getRectTransformAttrs } from './RectShape_ops';
+import { getRectTransformAttrs, getRectCornerPositions, calculateRectFromDrag } from './RectShape_ops';
 
 interface RectShapeProps {
   shape: Shape;
@@ -25,6 +25,7 @@ export const RectShape: React.FC<RectShapeProps> = ({
   const trRef = useRef<Konva.Transformer>(null);
   const isShiftPressed = useStore((state) => state.isShiftPressed);
   const tool = useStore((state) => state.tool);
+  const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
 
@@ -47,6 +48,10 @@ export const RectShape: React.FC<RectShapeProps> = ({
     }
   };
 
+  const corners = vertexEditMode ? getRectCornerPositions(shape) : [];
+
+  const [isDraggingShape, setIsDraggingShape] = React.useState(false);
+
   return (
     <>
       <Rect
@@ -63,10 +68,12 @@ export const RectShape: React.FC<RectShapeProps> = ({
         onTap={handleClick}
         onDragStart={(e) => {
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
+          setIsDraggingShape(true);
         }}
         dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
         onDragEnd={(e) => {
           dragStartPos.current = null;
+          setIsDraggingShape(false);
           onChange({
             x: e.target.x(),
             y: e.target.y(),
@@ -80,13 +87,31 @@ export const RectShape: React.FC<RectShapeProps> = ({
         }}
         ref={shapeRef}
       />
-      {isSelected && tool === 'select' && (
+      {isSelected && tool === 'select' && !vertexEditMode && (
         <Transformer
           ref={trRef}
           rotationSnaps={isShiftPressed ? [0, 90, 180, 270] : []}
           rotationSnapTolerance={20}
           boundBoxFunc={limitResizeBoundBoxFunc}
         />
+      )}
+      {isSelected && tool === 'select' && vertexEditMode && !isDraggingShape && (
+         corners.map((pos, i) => (
+             <Circle
+                key={i}
+                x={pos.x}
+                y={pos.y}
+                radius={6}
+                fill="white"
+                stroke="#3b82f6"
+                strokeWidth={1}
+                draggable
+                onDragMove={(e) => {
+                     const newAttrs = calculateRectFromDrag(shape, i, { x: e.target.x(), y: e.target.y() });
+                     onChange(newAttrs);
+                }}
+             />
+         ))
       )}
     </>
   );

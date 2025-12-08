@@ -25,9 +25,12 @@ export const LineShape: React.FC<LineShapeProps> = ({
   const trRef = useRef<Konva.Transformer>(null);
   const isShiftPressed = useStore((state) => state.isShiftPressed);
   const tool = useStore((state) => state.tool);
+  const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
   const selectedVertexIndices = useStore((state) => state.selectedVertexIndices);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  const [isDraggingShape, setIsDraggingShape] = React.useState(false);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -65,10 +68,12 @@ export const LineShape: React.FC<LineShapeProps> = ({
         onTap={handleClick}
         onDragStart={(e) => {
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
+          setIsDraggingShape(true);
         }}
         dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
         onDragEnd={(e) => {
           dragStartPos.current = null;
+          setIsDraggingShape(false);
           onChange({
             x: e.target.x(),
             y: e.target.y(),
@@ -82,7 +87,7 @@ export const LineShape: React.FC<LineShapeProps> = ({
         }}
         ref={shapeRef}
       />
-      {isSelected && tool === 'select' && shape.points && (
+      {isSelected && tool === 'select' && vertexEditMode && shape.points && !isDraggingShape && (
          Array.from({ length: shape.points.length / 2 }).map((_, i) => {
              const { x: absX, y: absY } = calculateVertexPos(shape, i);
              const isVertexSelected = selectedVertexIndices[shape.id]?.includes(i);
@@ -111,7 +116,7 @@ export const LineShape: React.FC<LineShapeProps> = ({
              );
          })
       )}
-      {isSelected && tool === 'select' && (
+      {isSelected && tool === 'select' && !vertexEditMode && (
         <Transformer
           ref={trRef}
           rotationSnaps={isShiftPressed ? [0, 90, 180, 270] : []}

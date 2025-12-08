@@ -8,7 +8,7 @@ import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIn
 const GRID_SIZE = 20;
 
 export const Canvas: React.FC = () => {
-  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices } = useStore();
+  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, setVertexEditMode, vertexEditMode } = useStore();
   const [isDrawing, setIsDrawing] = useState(false);
   const drawingShapeId = useRef<string | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
@@ -534,7 +534,15 @@ export const Canvas: React.FC = () => {
             key={shape.id}
             shape={shape}
             isSelected={selectedIds.includes(shape.id)}
-            onSelect={() => selectShape(shape.id)}
+            onSelect={() => {
+              if (selectedIds.includes(shape.id)) {
+                if (tool === 'select') {
+                    setVertexEditMode(true);
+                }
+              } else {
+                selectShape(shape.id);
+              }
+            }}
             onChange={(newAttrs) => updateShape(shape.id, newAttrs)}
             onTrim={(e) => {
                 const stage = e.target.getStage();
