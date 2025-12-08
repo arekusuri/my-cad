@@ -100,7 +100,7 @@ export const ShapeObj: React.FC<ShapeObjProps> = ({
         newAttrs.height = Math.max(5, (shape.height || 0) * scaleY);
       } else if (shape.type === 'circle') {
         newAttrs.radius = Math.max(5, (shape.radius || 0) * scaleX);
-      } else if (shape.type === 'line') {
+      } else if (shape.type === 'line' || shape.type === 'polygon') {
         // Apply scale to points to maintain visual size but reset scale
         const points = shape.points || [0, 0, 0, 0];
         const newPoints = points.map((p, i) => {
@@ -130,13 +130,69 @@ export const ShapeObj: React.FC<ShapeObjProps> = ({
           radius={shape.radius}
         />
       )}
-      {shape.type === 'line' && (
-        <Line
-          {...commonProps}
-          ref={shapeRef as React.RefObject<Konva.Line>}
-          points={shape.points}
-          hitStrokeWidth={20}
-        />
+      {(shape.type === 'line' || shape.type === 'polygon') && (
+        <>
+          <Line
+            {...commonProps}
+            ref={shapeRef as React.RefObject<Konva.Line>}
+            points={shape.points}
+            closed={shape.type === 'polygon'}
+            hitStrokeWidth={20}
+          />
+          {isSelected && tool === 'select' && shape.points && (
+             // Render vertex handles
+             Array.from({ length: shape.points.length / 2 }).map((_, i) => {
+                 const px = shape.points![i * 2];
+                 const py = shape.points![i * 2 + 1];
+                 
+                 // Calculate absolute position for initial render
+                 const rad = (shape.rotation * Math.PI) / 180;
+                 const cos = Math.cos(rad);
+                 const sin = Math.sin(rad);
+                 
+                 const absX = shape.x + px * cos - py * sin;
+                 const absY = shape.y + px * sin + py * cos;
+
+                 return (
+                     <Circle
+                        key={i}
+                        x={absX}
+                        y={absY}
+                        radius={4}
+                        fill="white"
+                        stroke="#3b82f6" // blue-500
+                        strokeWidth={1}
+                        draggable
+                        onDragMove={(e) => {
+                            // Inverse transform to get local coordinate
+                            const newAbsX = e.target.x();
+                            const newAbsY = e.target.y();
+                            
+                            // Subtract origin
+                            const dx = newAbsX - shape.x;
+                            const dy = newAbsY - shape.y;
+                            
+                            // Rotate back (-rotation)
+                            const newPx = dx * cos + dy * sin;
+                            const newPy = -dx * sin + dy * cos;
+                            
+                            const newPoints = [...(shape.points || [])];
+                            newPoints[i * 2] = newPx;
+                            newPoints[i * 2 + 1] = newPy;
+                            
+                            onChange({ points: newPoints });
+                        }}
+                        onDragEnd={(e) => {
+                             e.cancelBubble = true; // Prevent shape drag end
+                        }}
+                        onMouseDown={(e) => {
+                             e.cancelBubble = true; // Prevent selecting the shape itself (if it was somehow handled elsewhere)
+                        }}
+                     />
+                 );
+             })
+          )}
+        </>
       )}
       {isSelected && tool === 'select' && (
         <Transformer

@@ -118,7 +118,7 @@ export function isShapeInRect(shape: Shape, rect: { x: number; y: number; width:
         const r = shape.radius || 0;
         // Check bounding box of circle
         return contains(shape.x - r, shape.y - r) && contains(shape.x + r, shape.y + r);
-    } else if (shape.type === 'line') {
+    } else if (shape.type === 'line' || shape.type === 'polygon') {
         const points = shape.points || [];
         const rad = (shape.rotation * Math.PI) / 180;
         const cos = Math.cos(rad);
@@ -168,7 +168,7 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
         const dy = shape.y - cy;
         return (dx * dx + dy * dy) <= ((shape.radius || 0) * (shape.radius || 0));
         
-    } else if (shape.type === 'line') {
+    } else if (shape.type === 'line' || shape.type === 'polygon') {
          const points = shape.points || [];
          const rad = (shape.rotation * Math.PI) / 180;
          const cos = Math.cos(rad);
@@ -183,9 +183,13 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
             transformedPoints.push({ x: shape.x + rx, y: shape.y + ry });
          }
 
-        for (let i = 0; i < transformedPoints.length - 1; i++) {
+        // Check segments
+        const numPoints = transformedPoints.length;
+        const numSegments = shape.type === 'polygon' ? numPoints : numPoints - 1;
+
+        for (let i = 0; i < numSegments; i++) {
             const p1 = transformedPoints[i];
-            const p2 = transformedPoints[i+1];
+            const p2 = transformedPoints[(i+1) % numPoints];
             
              for (const l of rectLines) {
                 if (getLineIntersection(p1, p2, l[0], l[1])) return true;

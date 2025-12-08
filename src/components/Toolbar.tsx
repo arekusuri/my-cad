@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
-import { MousePointer2, Square, Circle, Minus, Eraser, Scissors } from 'lucide-react';
+import { MousePointer2, Square, Circle, Minus, Eraser, Scissors, Hexagon } from 'lucide-react';
 
 export const Toolbar: React.FC = () => {
   const tool = useStore((state) => state.tool);
@@ -10,6 +10,7 @@ export const Toolbar: React.FC = () => {
     { name: 'select', icon: MousePointer2 },
     { name: 'rect', icon: Square },
     { name: 'circle', icon: Circle },
+    { name: 'polygon', icon: Hexagon },
     { name: 'line', icon: Minus },
     { name: 'trim', icon: Scissors },
     { name: 'eraser', icon: Eraser },
