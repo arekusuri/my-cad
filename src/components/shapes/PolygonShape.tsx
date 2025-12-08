@@ -103,7 +103,7 @@ export const PolygonShape: React.FC<PolygonShapeProps> = ({
                     strokeWidth={1}
                     draggable
                     onDragMove={(e) => {
-                        const { newPoints } = calculateVertexDrag(e, shape, i, !!isVertexSelected, selectedVertexIndices[shape.id]);
+                        const { newPoints } = calculateVertexDrag(e, shape, i, !!isVertexSelected, selectedVertexIndices[shape.id], isShiftPressed);
                         onChange({ points: newPoints });
                     }}
                     onDragEnd={(e) => {

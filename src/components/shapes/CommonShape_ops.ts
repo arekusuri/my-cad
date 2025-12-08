@@ -1,4 +1,4 @@
-import Konva from 'konva';
+import { constrainToAxis } from '../modes/OrthoMode';
 
 export const commonDragBoundFunc = (
   pos: { x: number; y: number },
@@ -7,13 +7,7 @@ export const commonDragBoundFunc = (
 ) => {
   // Orthogonal move constraint
   if (isShiftPressed && dragStartPos) {
-    const dx = Math.abs(pos.x - dragStartPos.x);
-    const dy = Math.abs(pos.y - dragStartPos.y);
-    if (dx > dy) {
-      return { x: pos.x, y: dragStartPos.y };
-    } else {
-      return { x: dragStartPos.x, y: pos.y };
-    }
+    return constrainToAxis(dragStartPos, pos);
   }
   return pos;
 };

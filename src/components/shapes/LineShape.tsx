@@ -103,7 +103,7 @@ export const LineShape: React.FC<LineShapeProps> = ({
                     strokeWidth={1}
                     draggable
                     onDragMove={(e) => {
-                        const { newPoints } = calculateVertexDrag(e, shape, i, !!isVertexSelected, selectedVertexIndices[shape.id]);
+                        const { newPoints } = calculateVertexDrag(e, shape, i, !!isVertexSelected, selectedVertexIndices[shape.id], isShiftPressed);
                         onChange({ points: newPoints });
                     }}
                     onDragEnd={(e) => {

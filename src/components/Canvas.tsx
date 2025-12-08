@@ -11,12 +11,34 @@ const GRID_SIZE = 20;
 
 export const Canvas: React.FC = () => {
   const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, setVertexEditMode } = useStore();
+  const isShiftPressed = useStore((state) => state.isShiftPressed);
   const [isDrawing, setIsDrawing] = useState(false);
   const drawingShapeId = useRef<string | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [hoveredSnapPoint, setHoveredSnapPoint] = useState<SnapPoint | null>(null);
   const [draggingVertex, setDraggingVertex] = useState<{ shapeId: string; index: number; startX: number; startY: number } | null>(null);
   
+  // Calculate selected shape center for ortho axes
+  const getSelectedShapeCenter = (): { x: number; y: number } | null => {
+    if (selectedIds.length === 0) return null;
+    
+    let totalX = 0;
+    let totalY = 0;
+    let count = 0;
+    
+    selectedIds.forEach(id => {
+      const shape = shapes.find(s => s.id === id);
+      if (shape) {
+        totalX += shape.x;
+        totalY += shape.y;
+        count++;
+      }
+    });
+    
+    if (count === 0) return null;
+    return { x: totalX / count, y: totalY / count };
+  };
+
   // Snap function
   const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
 
@@ -717,6 +739,33 @@ export const Canvas: React.FC = () => {
                 dash={[5, 5]}
             />
         )}
+        {/* Ortho Mode Axes - show when shift is held and object is selected */}
+        {isShiftPressed && selectedIds.length > 0 && tool === 'select' && (() => {
+          const center = getSelectedShapeCenter();
+          if (!center) return null;
+          const screenWidth = window.innerWidth;
+          const screenHeight = window.innerHeight;
+          return (
+            <>
+              {/* Horizontal axis (X) - Red */}
+              <Line
+                points={[0, center.y, screenWidth, center.y]}
+                stroke="rgba(255, 0, 0, 0.5)"
+                strokeWidth={1}
+                dash={[10, 5]}
+                listening={false}
+              />
+              {/* Vertical axis (Y) - Green */}
+              <Line
+                points={[center.x, 0, center.x, screenHeight]}
+                stroke="rgba(0, 200, 0, 0.5)"
+                strokeWidth={1}
+                dash={[10, 5]}
+                listening={false}
+              />
+            </>
+          );
+        })()}
         <SelectModeVertexHighlight hoveredSnapPoint={hoveredSnapPoint} />
       </Layer>
     </Stage>

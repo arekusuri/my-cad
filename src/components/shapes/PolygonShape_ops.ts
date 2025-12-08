@@ -1,5 +1,6 @@
 import type { Shape } from '../../store/useStore';
 import Konva from 'konva';
+import { constrainLineToOrtho } from '../modes/OrthoMode';
 
 export const getPolyTransformAttrs = (
   node: Konva.Line,
@@ -30,7 +31,8 @@ export const calculateVertexDrag = (
   shape: Shape,
   index: number,
   isVertexSelected: boolean,
-  selectedVertexIndices: number[] | undefined
+  selectedVertexIndices: number[] | undefined,
+  isOrthoMode: boolean = false
 ): { newPoints: number[] } => {
     // Inverse transform to get local coordinate
     const newAbsX = e.target.x();
@@ -45,8 +47,22 @@ export const calculateVertexDrag = (
     const dy = newAbsY - shape.y;
     
     // Rotate back (-rotation)
-    const newPx = dx * cos + dy * sin;
-    const newPy = -dx * sin + dy * cos;
+    let newPx = dx * cos + dy * sin;
+    let newPy = -dx * sin + dy * cos;
+    
+    // For lines with ortho mode: make the line horizontal or vertical
+    if (isOrthoMode && shape.type === 'line' && shape.points && shape.points.length === 4) {
+        // Line has 2 points: [x1, y1, x2, y2]
+        // If dragging point 0 (start), constrain relative to point 1 (end)
+        // If dragging point 1 (end), constrain relative to point 0 (start)
+        const otherIndex = index === 0 ? 1 : 0;
+        const otherX = shape.points[otherIndex * 2];
+        const otherY = shape.points[otherIndex * 2 + 1];
+        
+        const constrained = constrainLineToOrtho(otherX, otherY, newPx, newPy);
+        newPx = constrained.endX;
+        newPy = constrained.endY;
+    }
     
     // Calculate delta from current pos
     const currentPx = shape.points![index * 2];
