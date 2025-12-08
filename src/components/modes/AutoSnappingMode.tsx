@@ -2,6 +2,7 @@ import React from 'react';
 import { Circle as KonvaCircle, RegularPolygon } from 'react-konva';
 import { useStore, type Shape } from '../../store/useStore';
 import { getShapeVertices, getShapeMidpoints, type Point } from '../../utils/geometry';
+import { constrainLineToOrtho } from './OrthoMode';
 
 export interface SnapPoint {
     shapeId: string;
@@ -85,7 +86,8 @@ export const handleVertexDrag = (
     newX: number,
     newY: number,
     shapes: Shape[],
-    updateShape: (id: string, attrs: Partial<Shape>) => void
+    updateShape: (id: string, attrs: Partial<Shape>) => void,
+    isOrthoMode: boolean = false
 ) => {
     const shape = shapes.find(s => s.id === draggingVertex.shapeId);
     if (!shape) return;
@@ -95,8 +97,25 @@ export const handleVertexDrag = (
         const idx = draggingVertex.index;
         if (idx * 2 + 1 < points.length) {
             // Points are relative to shape.x, shape.y
-            points[idx * 2] = newX - shape.x;
-            points[idx * 2 + 1] = newY - shape.y;
+            let relX = newX - shape.x;
+            let relY = newY - shape.y;
+            
+            // For lines with ortho mode: make the line horizontal or vertical
+            if (isOrthoMode && shape.type === 'line' && points.length === 4) {
+                // Line has 2 points: [x1, y1, x2, y2]
+                // If dragging point 0 (start), constrain relative to point 1 (end)
+                // If dragging point 1 (end), constrain relative to point 0 (start)
+                const otherIndex = idx === 0 ? 1 : 0;
+                const otherX = points[otherIndex * 2];
+                const otherY = points[otherIndex * 2 + 1];
+                
+                const constrained = constrainLineToOrtho(otherX, otherY, relX, relY);
+                relX = constrained.endX;
+                relY = constrained.endY;
+            }
+            
+            points[idx * 2] = relX;
+            points[idx * 2 + 1] = relY;
             updateShape(shape.id, { points });
         }
     } else if (shape.type === 'rect') {

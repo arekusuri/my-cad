@@ -223,8 +223,13 @@ export const Canvas: React.FC = () => {
         let newX = mouseX;
         let newY = mouseY;
         
-        // Apply ortho constraint first (relative to start position)
-        if (isOrthoEnabled) {
+        // Check if we're dragging a line vertex
+        const draggedShape = shapes.find(s => s.id === draggingVertex.shapeId);
+        const isLineVertex = draggedShape?.type === 'line';
+        
+        // For lines with ortho: make line H/V (handled in handleVertexDrag)
+        // For other shapes: constrain movement to axis
+        if (isOrthoEnabled && !isLineVertex) {
             const constrained = constrainToAxis(
                 { x: draggingVertex.startX, y: draggingVertex.startY },
                 { x: mouseX, y: mouseY }
@@ -239,14 +244,28 @@ export const Canvas: React.FC = () => {
              newY = snapToGrid(newY);
         }
 
-        handleVertexDrag(draggingVertex, newX, newY, shapes, updateShape);
+        // Pass isOrthoEnabled for line H/V constraint
+        handleVertexDrag(draggingVertex, newX, newY, shapes, updateShape, isOrthoEnabled);
+        
+        // Calculate actual highlight position (for lines with ortho, compute constrained position)
+        let highlightX = newX;
+        let highlightY = newY;
+        if (isOrthoEnabled && isLineVertex && draggedShape?.points && draggedShape.points.length === 4) {
+            const idx = draggingVertex.index;
+            const otherIndex = idx === 0 ? 1 : 0;
+            const otherAbsX = draggedShape.x + draggedShape.points[otherIndex * 2];
+            const otherAbsY = draggedShape.y + draggedShape.points[otherIndex * 2 + 1];
+            const constrained = constrainLineToOrtho(otherAbsX, otherAbsY, newX, newY);
+            highlightX = constrained.endX;
+            highlightY = constrained.endY;
+        }
              
          // Update the visual highlight position to follow the mouse
          setHoveredSnapPoint({
              shapeId: draggingVertex.shapeId,
              index: draggingVertex.index,
-             x: newX,
-             y: newY,
+             x: highlightX,
+             y: highlightY,
              type: 'vertex'
          });
         return;
