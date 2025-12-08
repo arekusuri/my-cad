@@ -40,7 +40,7 @@ export const Canvas: React.FC = () => {
       }
     }
 
-    if (tool !== 'rect' && tool !== 'circle' && tool !== 'line' && tool !== 'polygon') return;
+    if (tool !== 'rect' && tool !== 'circle' && tool !== 'line' && tool !== 'polygon' && tool !== 'triangle') return;
 
     // Start drawing
     const stage = e.target.getStage();
@@ -107,13 +107,11 @@ export const Canvas: React.FC = () => {
         y, 
         points: [0, 0, 0, 0], // Points relative to origin
       });
-    } else if (tool === 'polygon') {
+    } else if (tool === 'triangle') {
       addShape({
         ...newShapeBase,
-        type: 'polygon',
-        x,
-        y,
-        points: [0, 0, 0, 0], // Start point + Moving point
+        type: 'triangle',
+        radius: 0,
       });
     }
 
@@ -166,7 +164,7 @@ export const Canvas: React.FC = () => {
         width,
         height,
       });
-    } else if (shape.type === 'circle') {
+    } else if (shape.type === 'circle' || shape.type === 'triangle') {
       const dx = snapX - shape.x;
       const dy = snapY - shape.y;
       // Normal radius calculation
@@ -230,7 +228,7 @@ export const Canvas: React.FC = () => {
                 if (Math.abs(shape.width || 0) < 1 || Math.abs(shape.height || 0) < 1) {
                     deleteShape(shape.id);
                 }
-            } else if (shape.type === 'circle') {
+            } else if (shape.type === 'circle' || shape.type === 'triangle') {
                 if ((shape.radius || 0) < 1) {
                     deleteShape(shape.id);
                 }

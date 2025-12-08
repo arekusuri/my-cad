@@ -5,6 +5,7 @@ import { RectShape } from './shapes/RectShape';
 import { CircleShape } from './shapes/CircleShape';
 import { LineShape } from './shapes/LineShape';
 import { PolygonShape } from './shapes/PolygonShape';
+import { TriangleShape } from './shapes/TriangleShape';
 
 interface ShapeObjProps {
   shape: Shape;
@@ -26,6 +27,8 @@ export const ShapeObj: React.FC<ShapeObjProps> = (props) => {
       return <LineShape {...props} />;
     case 'polygon':
       return <PolygonShape {...props} />;
+    case 'triangle':
+      return <TriangleShape {...props} />;
     default:
       return null;
   }
