@@ -1,11 +1,11 @@
 import React from 'react';
 import type { Shape } from '../store/useStore';
 import Konva from 'konva';
-import { RectShape } from './shapes/RectShape';
-import { CircleShape } from './shapes/CircleShape';
-import { SegmentShape } from './shapes/SegmentShape';
-import { TriangleShape } from './shapes/TriangleShape';
-import { PolygonShape } from './shapes/PolygonShape';
+import { RectShape } from './shapes/rect/RectShape';
+import { CircleShape } from './shapes/circle/CircleShape';
+import { SegmentShape } from './shapes/segment/SegmentShape';
+import { TriangleShape } from './shapes/triangle/TriangleShape';
+import { PolygonShape } from './shapes/polygon/PolygonShape';
 
 interface ShapeObjProps {
   shape: Shape;

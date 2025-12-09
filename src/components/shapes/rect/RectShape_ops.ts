@@ -1,4 +1,4 @@
-import type { Shape } from '../../store/useStore';
+import type { Shape } from '../../../store/useStore';
 import Konva from 'konva';
 
 export const getRectTransformAttrs = (
@@ -100,3 +100,4 @@ export const calculateRectFromDrag = (
         height: newH,
     };
 };
+

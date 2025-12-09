@@ -1,6 +1,5 @@
-import type { DrawingTool, DrawingContext, DrawingMouseEvent, DrawingResult } from './DrawingTool';
-import type { Shape } from '../../store/useStore';
-import { constrainToAxis } from '../modes/OrthoMode';
+import type { DrawingTool, DrawingContext, DrawingMouseEvent, DrawingResult } from '../../tools/DrawingTool';
+import { constrainToAxis } from '../../modes/OrthoMode';
 
 export interface TriangleDrawState {
     p1: { x: number; y: number };

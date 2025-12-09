@@ -1,8 +1,8 @@
-import type { Shape } from '../../store/useStore';
+import type { Shape } from '../../../store/useStore';
 import Konva from 'konva';
 
-export const getTriangleTransformAttrs = (
-  node: Konva.RegularPolygon,
+export const getCircleTransformAttrs = (
+  node: Konva.Circle,
   shape: Shape
 ): Partial<Shape> => {
   const scaleX = node.scaleX();

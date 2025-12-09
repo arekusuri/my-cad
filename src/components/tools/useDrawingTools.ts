@@ -1,11 +1,11 @@
 import { useRef, useMemo, useCallback, useSyncExternalStore } from 'react';
 import { useStore } from '../../store/useStore';
 import type { DrawingTool, DrawingContext, DrawingMouseEvent } from './DrawingTool';
-import { CircleDrawing } from './CircleDrawing';
-import { RectDrawing } from './RectDrawing';
-import { SegmentDrawing } from './SegmentDrawing';
-import { PolygonDrawing } from './PolygonDrawing';
-import { TriangleDrawing, type TriangleDrawState } from './TriangleDrawing';
+import { CircleDrawing } from '../shapes/circle/CircleDrawing';
+import { RectDrawing } from '../shapes/rect/RectDrawing';
+import { SegmentDrawing } from '../shapes/segment/SegmentDrawing';
+import { PolygonDrawing } from '../shapes/polygon/PolygonDrawing';
+import { TriangleDrawing, type TriangleDrawState } from '../shapes/triangle/TriangleDrawing';
 import type { Point } from '../../utils/geometry';
 
 interface UseDrawingToolsProps {

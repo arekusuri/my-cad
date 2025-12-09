@@ -1,6 +1,6 @@
-import type { Shape } from '../../store/useStore';
+import type { Shape } from '../../../store/useStore';
 import Konva from 'konva';
-import { constrainLineToOrtho } from '../modes/OrthoMode';
+import { constrainLineToOrtho } from '../../modes/OrthoMode';
 
 export const getPolygonTransformAttrs = (
   node: Konva.RegularPolygon,

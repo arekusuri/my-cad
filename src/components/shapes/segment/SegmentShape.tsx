@@ -1,13 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { Line, Transformer, Circle } from 'react-konva';
-import type { Shape } from '../../store/useStore';
-import { useStore } from '../../store/useStore';
+import type { Shape } from '../../../store/useStore';
+import { useStore } from '../../../store/useStore';
 import Konva from 'konva';
-import { commonDragBoundFunc, limitResizeBoundBoxFunc } from './CommonShape_ops';
-import { calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from './PolygonShape_ops';
-import { setCursor } from './cursor';
+import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops';
+import { getPolyTransformAttrs, calculateVertexDrag, calculateVertexPos } from './SegmentShape_ops';
+import { setCursor } from '../cursor';
 
-interface TriangleShapeProps {
+interface SegmentShapeProps {
   shape: Shape;
   isSelected: boolean;
   onSelect: () => void;
@@ -15,7 +15,7 @@ interface TriangleShapeProps {
   onTrim: (e: Konva.KonvaEventObject<MouseEvent> | Konva.KonvaEventObject<TouchEvent>) => void;
 }
 
-export const TriangleShape: React.FC<TriangleShapeProps> = ({
+export const SegmentShape: React.FC<SegmentShapeProps> = ({
   shape,
   isSelected,
   onSelect,
@@ -28,8 +28,8 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
   const isAltPressed = useStore((state) => state.isAltPressed);
   const tool = useStore((state) => state.tool);
   const vertexEditMode = useStore((state) => state.vertexEditMode);
-  const selectedVertexIndices = useStore((state) => state.selectedVertexIndices);
   const deleteShape = useStore((state) => state.deleteShape);
+  const selectedVertexIndices = useStore((state) => state.selectedVertexIndices);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const [isDraggingShape, setIsDraggingShape] = React.useState(false);
@@ -53,11 +53,6 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
     }
   };
 
-  // Triangle requires points array with 6 values [x1,y1,x2,y2,x3,y3]
-  if (!shape.points || shape.points.length < 6) {
-    return null;
-  }
-
   return (
     <>
       <Line
@@ -68,7 +63,8 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
         fill={shape.fill}
         id={shape.id}
         points={shape.points}
-        closed={true}
+        closed={false}
+        hitStrokeWidth={20}
         draggable={tool === 'select'}
         onClick={handleClick}
         onTap={handleClick}
@@ -96,7 +92,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
           });
         }}
         onTransformEnd={() => {
-          const node = shapeRef.current as Konva.Line;
+          const node = shapeRef.current;
           if (!node) return;
           const newAttrs = getPolyTransformAttrs(node, shape);
           onChange(newAttrs);
@@ -104,33 +100,33 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
         ref={shapeRef}
       />
       {isSelected && tool === 'select' && vertexEditMode && shape.points && !isDraggingShape && !isAltPressed && (
-        Array.from({ length: shape.points.length / 2 }).map((_, i) => {
-          const { x: absX, y: absY } = calculateVertexPos(shape, i);
-          const isVertexSelected = selectedVertexIndices[shape.id]?.includes(i);
+         Array.from({ length: shape.points.length / 2 }).map((_, i) => {
+             const { x: absX, y: absY } = calculateVertexPos(shape, i);
+             const isVertexSelected = selectedVertexIndices[shape.id]?.includes(i);
 
-          return (
-            <Circle
-              key={i}
-              x={absX}
-              y={absY}
-              radius={4}
-              fill={isVertexSelected ? "red" : "white"}
-              stroke="#3b82f6"
-              strokeWidth={1}
-              draggable
-              onDragMove={(e) => {
-                const { newPoints } = calculateVertexDrag(e, shape, i, !!isVertexSelected, selectedVertexIndices[shape.id], isShiftPressed);
-                onChange({ points: newPoints });
-              }}
-              onDragEnd={(e) => {
-                e.cancelBubble = true;
-              }}
-              onMouseDown={(e) => {
-                e.cancelBubble = true;
-              }}
-            />
-          );
-        })
+             return (
+                 <Circle
+                    key={i}
+                    x={absX}
+                    y={absY}
+                    radius={4}
+                    fill={isVertexSelected ? "red" : "white"}
+                    stroke="#3b82f6"
+                    strokeWidth={1}
+                    draggable
+                    onDragMove={(e) => {
+                        const { newPoints } = calculateVertexDrag(e, shape, i, !!isVertexSelected, selectedVertexIndices[shape.id], isShiftPressed);
+                        onChange({ points: newPoints });
+                    }}
+                    onDragEnd={(e) => {
+                         e.cancelBubble = true;
+                    }}
+                    onMouseDown={(e) => {
+                         e.cancelBubble = true;
+                    }}
+                 />
+             );
+         })
       )}
       {isSelected && tool === 'select' && !vertexEditMode && (
         <Transformer
@@ -143,3 +139,4 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
     </>
   );
 };
+

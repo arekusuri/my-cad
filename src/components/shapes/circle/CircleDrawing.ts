@@ -1,6 +1,6 @@
-import { DragDrawingTool } from './DrawingTool';
-import type { Shape } from '../../store/useStore';
-import { constrainToAxis } from '../modes/OrthoMode';
+import { DragDrawingTool } from '../../tools/DrawingTool';
+import type { Shape } from '../../../store/useStore';
+import { constrainToAxis } from '../../modes/OrthoMode';
 
 /**
  * Circle drawing tool

@@ -7,7 +7,7 @@ import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIn
 import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
 import { constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
 import { useDrawingTools } from './tools/useDrawingTools';
-import { TrianglePreview } from './tools/TrianglePreview';
+import { TrianglePreview } from './shapes/triangle/TrianglePreview';
 
 const GRID_SIZE = 20;
 
