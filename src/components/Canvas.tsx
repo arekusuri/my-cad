@@ -167,18 +167,40 @@ export const Canvas: React.FC = () => {
 
     // Triangle tool: multi-click handling
     if (tool === 'triangle') {
+        const isOrthoEnabled = e.evt.shiftKey;
+        
         if (!triangleDrawState) {
             // First click: set point 1
             setTriangleDrawState({ p1: { x, y } });
             setTrianglePreviewPoint({ x, y });
         } else if (!triangleDrawState.p2) {
             // Second click: set point 2
-            setTriangleDrawState({ ...triangleDrawState, p2: { x, y } });
-            setTrianglePreviewPoint({ x, y });
+            let finalX = x;
+            let finalY = y;
+            
+            // Constrain to X/Y axis if Shift is held
+            if (isOrthoEnabled) {
+                const constrained = constrainToAxis(triangleDrawState.p1, { x, y });
+                finalX = constrained.x;
+                finalY = constrained.y;
+            }
+            
+            setTriangleDrawState({ ...triangleDrawState, p2: { x: finalX, y: finalY } });
+            setTrianglePreviewPoint({ x: finalX, y: finalY });
         } else {
             // Third click: finalize triangle
             const { p1, p2 } = triangleDrawState;
-            const p3 = { x, y };
+            let finalX = x;
+            let finalY = y;
+            
+            // Constrain to X/Y axis from p2 if Shift is held
+            if (isOrthoEnabled) {
+                const constrained = constrainToAxis(p2, { x, y });
+                finalX = constrained.x;
+                finalY = constrained.y;
+            }
+            
+            const p3 = { x: finalX, y: finalY };
             
             // Create triangle with points relative to p1 (origin)
             addShape({
@@ -341,6 +363,16 @@ export const Canvas: React.FC = () => {
                 previewX = snapToGrid(pos.x);
                 previewY = snapToGrid(pos.y);
             }
+        }
+        
+        // Constrain to X/Y axis if Shift is held
+        const isOrthoEnabled = e.evt.shiftKey;
+        if (isOrthoEnabled) {
+            // Constrain from p1 if drawing first segment, from p2 if drawing second
+            const referencePoint = triangleDrawState.p2 ?? triangleDrawState.p1;
+            const constrained = constrainToAxis(referencePoint, { x: previewX, y: previewY });
+            previewX = constrained.x;
+            previewY = constrained.y;
         }
         
         setTrianglePreviewPoint({ x: previewX, y: previewY });
