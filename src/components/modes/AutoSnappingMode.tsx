@@ -79,14 +79,17 @@ export interface SnapPoint {
 
 interface SnapPointHighlightProps {
     hoveredSnapPoint: SnapPoint | null;
+    viewportScale?: number;
 }
 
 /**
  * Visual highlight for snap points (vertices and midpoints).
  * Shows a red circle for vertices, blue triangle for midpoints.
  */
-export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredSnapPoint }) => {
+export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredSnapPoint, viewportScale = 1 }) => {
     if (!hoveredSnapPoint) return null;
+    
+    const strokeWidth = 2 / viewportScale;
     
     if (hoveredSnapPoint.type === 'midpoint') {
         return (
@@ -94,9 +97,9 @@ export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredS
                 x={hoveredSnapPoint.x}
                 y={hoveredSnapPoint.y}
                 sides={3}
-                radius={8}
+                radius={8 / viewportScale}
                 stroke="blue"
-                strokeWidth={2}
+                strokeWidth={strokeWidth}
                 fill="transparent"
                 listening={false}
                 rotation={0}
@@ -108,9 +111,9 @@ export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredS
         <KonvaCircle
             x={hoveredSnapPoint.x}
             y={hoveredSnapPoint.y}
-            radius={6}
+            radius={6 / viewportScale}
             stroke="red"
-            strokeWidth={2}
+            strokeWidth={strokeWidth}
             fill="transparent"
             listening={false}
         />

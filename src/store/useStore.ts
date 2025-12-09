@@ -41,7 +41,14 @@ export interface Shape {
   rotation: number;
 }
 
-export type ToolType = 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim' | 'point';
+export type ToolType = 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim' | 'point' | 'zoom';
+
+/** Viewport state for zoom/pan */
+export interface ViewportState {
+  scale: number;
+  x: number;
+  y: number;
+}
 
 interface StoreState {
   shapes: Shape[];
@@ -53,6 +60,10 @@ interface StoreState {
   tool: ToolType;
   isShiftPressed: boolean;
   isAltPressed: boolean;
+  /** Current viewport (zoom/pan state) */
+  viewport: ViewportState;
+  /** Whether we are currently zoomed in (not at default view) */
+  isZoomed: boolean;
   
   setTool: (tool: ToolType) => void;
   setVertexEditMode: (enabled: boolean) => void;
@@ -68,7 +79,13 @@ interface StoreState {
   getSegmentAttachments: (segmentId: string) => SegmentAttachment[];
   setShiftPressed: (pressed: boolean) => void;
   setAltPressed: (pressed: boolean) => void;
+  /** Set viewport (zoom to specific area) */
+  setViewport: (viewport: ViewportState) => void;
+  /** Reset viewport to default (show whole grid) */
+  resetViewport: () => void;
 }
+
+const DEFAULT_VIEWPORT: ViewportState = { scale: 1, x: 0, y: 0 };
 
 export const useStore = create<StoreState>((set, get) => ({
   shapes: [],
@@ -80,6 +97,8 @@ export const useStore = create<StoreState>((set, get) => ({
   tool: 'select',
   isShiftPressed: false,
   isAltPressed: false,
+  viewport: DEFAULT_VIEWPORT,
+  isZoomed: false,
 
   setTool: (tool) => set({ tool, selectedIds: [], selectedVertexIndices: {}, vertexEditMode: false }),
   setVertexEditMode: (enabled) => set({ vertexEditMode: enabled }),
@@ -123,4 +142,6 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   setShiftPressed: (pressed) => set({ isShiftPressed: pressed }),
   setAltPressed: (pressed) => set({ isAltPressed: pressed }),
+  setViewport: (viewport) => set({ viewport, isZoomed: true }),
+  resetViewport: () => set({ viewport: DEFAULT_VIEWPORT, isZoomed: false, tool: 'select' }),
 }));

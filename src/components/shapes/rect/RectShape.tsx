@@ -29,7 +29,11 @@ export const RectShape: React.FC<RectShapeProps> = ({
   const tool = useStore((state) => state.tool);
   const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
+  const viewportScale = useStore((state) => state.viewport.scale);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  
+  // Stroke width that maintains consistent visual appearance regardless of zoom
+  const strokeWidth = 1 / viewportScale;
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -61,6 +65,7 @@ export const RectShape: React.FC<RectShapeProps> = ({
         y={shape.y}
         rotation={shape.rotation}
         stroke={shape.stroke}
+        strokeWidth={strokeWidth}
         fill={shape.fill}
         id={shape.id}
         width={shape.width}
@@ -113,10 +118,10 @@ export const RectShape: React.FC<RectShapeProps> = ({
                 key={i}
                 x={pos.x}
                 y={pos.y}
-                radius={6}
+                radius={6 / viewportScale}
                 fill="white"
                 stroke="#3b82f6"
-                strokeWidth={1}
+                strokeWidth={strokeWidth}
                 draggable
                 onDragMove={(e) => {
                      const newAttrs = calculateRectFromDrag(shape, i, { x: e.target.x(), y: e.target.y() });

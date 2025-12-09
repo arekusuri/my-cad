@@ -29,9 +29,13 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
   const tool = useStore((state) => state.tool);
   const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
+  const viewportScale = useStore((state) => state.viewport.scale);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
   const [isDraggingRadius, setIsDraggingRadius] = useState(false);
   const [isDraggingShape, setIsDraggingShape] = useState(false);
+  
+  // Stroke width that maintains consistent visual appearance regardless of zoom
+  const strokeWidth = 1 / viewportScale;
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -59,6 +63,7 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
         y={shape.y}
         rotation={shape.rotation}
         stroke={shape.stroke}
+        strokeWidth={strokeWidth}
         fill={shape.fill}
         id={shape.id}
         radius={shape.radius}
@@ -110,10 +115,10 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
            <Circle
               x={shape.x}
               y={shape.y}
-              radius={6}
+              radius={6 / viewportScale}
               fill="white"
               stroke="#3b82f6"
-              strokeWidth={1}
+              strokeWidth={strokeWidth}
               draggable
               onDragMove={(e) => {
                   onChange({ x: e.target.x(), y: e.target.y() });
@@ -124,10 +129,10 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
               // Only control position when not dragging to prevent snap-back during drag
               x={!isDraggingRadius ? shape.x + (shape.radius || 0) * Math.cos((shape.rotation || 0) * Math.PI / 180) : undefined}
               y={!isDraggingRadius ? shape.y + (shape.radius || 0) * Math.sin((shape.rotation || 0) * Math.PI / 180) : undefined}
-              radius={6}
+              radius={6 / viewportScale}
               fill="white"
               stroke="#3b82f6"
-              strokeWidth={1}
+              strokeWidth={strokeWidth}
               draggable
               dragBoundFunc={(pos) => {
                   const rotationRad = (shape.rotation || 0) * Math.PI / 180;

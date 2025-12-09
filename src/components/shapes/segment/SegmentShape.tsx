@@ -30,9 +30,13 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
   const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
   const selectedVertexIndices = useStore((state) => state.selectedVertexIndices);
+  const viewportScale = useStore((state) => state.viewport.scale);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const [isDraggingShape, setIsDraggingShape] = React.useState(false);
+  
+  // Stroke width that maintains consistent visual appearance regardless of zoom
+  const strokeWidth = 1 / viewportScale;
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -60,11 +64,12 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
         y={shape.y}
         rotation={shape.rotation}
         stroke={shape.stroke}
+        strokeWidth={strokeWidth}
         fill={shape.fill}
         id={shape.id}
         points={shape.points}
         closed={false}
-        hitStrokeWidth={20}
+        hitStrokeWidth={20 / viewportScale}
         draggable={tool === 'select'}
         onClick={handleClick}
         onTap={handleClick}
@@ -109,10 +114,10 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
                     key={i}
                     x={absX}
                     y={absY}
-                    radius={4}
+                    radius={4 / viewportScale}
                     fill={isVertexSelected ? "red" : "white"}
                     stroke="#3b82f6"
-                    strokeWidth={1}
+                    strokeWidth={strokeWidth}
                     draggable
                     onDragMove={(e) => {
                         const { newPoints } = calculateVertexDrag(e, shape, i, !!isVertexSelected, selectedVertexIndices[shape.id], isShiftPressed);

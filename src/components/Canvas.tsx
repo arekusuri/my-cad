@@ -1,12 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Stage, Layer, Line, Rect, Circle as KonvaCircle } from 'react-konva';
+import { Stage, Layer, Line, Circle as KonvaCircle } from 'react-konva';
 import { useStore, type Shape, type AttachedPoint } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
-import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIntersectRect, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
+import { getLineIntersection, distance, getRectLines, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
 import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
 import { constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
 import { OrthoAxes } from './modes/OrthoMode.tsx';
+import { useZoomMode, ZoomBoxOverlay } from './modes/ZoomMode';
+import { useSelectionMode, SelectionBoxOverlay } from './modes/SelectionMode';
 import { useDrawingTools } from './tools/useDrawingTools';
 import type { SnapPointInfo } from './tools/DrawingTool';
 import { TrianglePreview, getTriangleAttachedPoints, hasTriangleAttachedPointAt, updateTriangleAttachedSegments } from './shapes/triangle';
@@ -15,10 +17,30 @@ import { getPolygonAttachedPoints, hasPolygonAttachedPointAt, updatePolygonAttac
 const GRID_SIZE = 20;
 
 export const Canvas: React.FC = () => {
-  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, attachedPoints, addAttachedPoint, segmentAttachments } = useStore();
+  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, attachedPoints, addAttachedPoint, segmentAttachments } = useStore();
   const isShiftPressed = useStore((state) => state.isShiftPressed);
-  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const setTool = useStore((state) => state.setTool);
   const [hoveredSnapPoint, setHoveredSnapPoint] = useState<SnapPoint | null>(null);
+  
+  // Zoom mode (encapsulated in ZoomMode)
+  const { 
+    viewport, 
+    zoomBox, 
+    isZoomToolActive,
+    screenToWorld, 
+    startZoomBox, 
+    updateZoomBox, 
+    completeZoomBox 
+  } = useZoomMode({ onZoomComplete: () => setTool('select') });
+  
+  // Selection mode (encapsulated in SelectionMode)
+  const {
+    selectionBox,
+    isSelecting,
+    startSelectionBox,
+    updateSelectionBox,
+    completeSelectionBox,
+  } = useSelectionMode({ shapes, selectedIds });
   
   // Vertex drag with Escape cancellation (encapsulated in AutoSnappingMode)
   const { draggingVertex, startDrag, endDrag } = useVertexDrag(updateShape);
@@ -182,10 +204,19 @@ export const Canvas: React.FC = () => {
     // Only allow left click for drawing/selecting
     if (e.evt.button !== 0) return;
 
-    // Get position
+    // Get position (screen coordinates)
     const stage = e.target.getStage();
-    const pos = stage?.getPointerPosition();
-    if (!pos) return;
+    const screenPos = stage?.getPointerPosition();
+    if (!screenPos) return;
+    
+    // Convert to world coordinates for most operations
+    const pos = screenToWorld(screenPos.x, screenPos.y);
+
+    // Handle zoom tool - start zoom selection box (use screen coords)
+    if (isZoomToolActive) {
+      startZoomBox(screenPos.x, screenPos.y);
+      return;
+    }
 
     // Handle point tool - add attached point on snap points
     if (tool === 'point') {
@@ -224,14 +255,7 @@ export const Canvas: React.FC = () => {
       selectShape(null);
       
       if (tool === 'select') {
-        if (pos) {
-            setSelectionBox({
-                startX: pos.x,
-                startY: pos.y,
-                currentX: pos.x,
-                currentY: pos.y
-            });
-        }
+        startSelectionBox(pos.x, pos.y);
       }
     }
 
@@ -252,8 +276,17 @@ export const Canvas: React.FC = () => {
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const stage = e.target.getStage();
-    const pos = stage?.getPointerPosition();
-    if (!pos) return;
+    const screenPos = stage?.getPointerPosition();
+    if (!screenPos) return;
+    
+    // Convert to world coordinates
+    const pos = screenToWorld(screenPos.x, screenPos.y);
+
+    // Handle zoom box dragging (use screen coords)
+    if (zoomBox) {
+      updateZoomBox(screenPos.x, screenPos.y);
+      return;
+    }
 
     // 1. Vertex Dragging (Select Mode)
     if (draggingVertex && tool === 'select') {
@@ -314,8 +347,8 @@ export const Canvas: React.FC = () => {
         return;
     }
 
-    if (selectionBox) {
-        setSelectionBox(prev => prev ? ({ ...prev, currentX: pos.x, currentY: pos.y }) : null);
+    if (isSelecting) {
+        updateSelectionBox(pos.x, pos.y);
         return;
     }
 
@@ -349,10 +382,17 @@ export const Canvas: React.FC = () => {
   const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
     endDrag(); // Stop dragging vertex (clears saved shape)
 
+    // Handle zoom box completion
+    if (zoomBox) {
+      completeZoomBox();
+      return;
+    }
+
     // Delegate to drawing tools
     const stage = e.target.getStage();
-    const pos = stage?.getPointerPosition();
-    if (pos) {
+    const screenPos = stage?.getPointerPosition();
+    if (screenPos) {
+      const pos = screenToWorld(screenPos.x, screenPos.y);
       const drawingEvent = {
         x: pos.x,
         y: pos.y,
@@ -363,76 +403,8 @@ export const Canvas: React.FC = () => {
       drawingTools.handleMouseUp(drawingEvent);
     }
 
-    if (selectionBox) {
-        const { startX, startY, currentX, currentY } = selectionBox;
-        const isWindowSelection = currentY > startY; // Down -> Window (Blue)
-        
-        const rect = {
-            x: Math.min(startX, currentX),
-            y: Math.min(startY, currentY),
-            width: Math.abs(currentX - startX),
-            height: Math.abs(currentY - startY)
-        };
-
-        if (rect.width > 2 && rect.height > 2) {
-            // Check for vertex selection first if we have selected shapes
-            const newSelectedVertices: Record<string, number[]> = {};
-            let foundVertices = false;
-
-            selectedIds.forEach(id => {
-                const shape = shapes.find(s => s.id === id);
-                if (!shape || shape.type !== 'segment' || !shape.points) return;
-
-                const indices: number[] = [];
-                const rad = (shape.rotation * Math.PI) / 180;
-                const cos = Math.cos(rad);
-                const sin = Math.sin(rad);
-
-                for (let i = 0; i < shape.points.length / 2; i++) {
-                    const px = shape.points[i * 2];
-                    const py = shape.points[i * 2 + 1];
-                    const absX = shape.x + px * cos - py * sin;
-                    const absY = shape.y + px * sin + py * cos;
-
-                    // Check if point is inside selection rect
-                    if (absX >= rect.x && absX <= rect.x + rect.width &&
-                        absY >= rect.y && absY <= rect.y + rect.height) {
-                        indices.push(i);
-                    }
-                }
-
-                if (indices.length > 0) {
-                    newSelectedVertices[id] = indices;
-                    foundVertices = true;
-                }
-            });
-
-            if (foundVertices) {
-                selectVertices(newSelectedVertices);
-            } else {
-                // Normal shape selection
-                const idsToSelect: string[] = [];
-                shapes.forEach(shape => {
-                    let match = false;
-                    if (isWindowSelection) {
-                        match = isShapeInRect(shape, rect);
-                    } else {
-                        match = doesShapeIntersectRect(shape, rect);
-                    }
-                    
-                    if (match) {
-                        idsToSelect.push(shape.id);
-                    }
-                });
-                
-                if (idsToSelect.length > 0) {
-                        selectShape(idsToSelect);
-                } else {
-                        selectShape(null); // Deselect if nothing found
-                }
-            }
-        }
-        setSelectionBox(null);
+    if (isSelecting) {
+        completeSelectionBox();
     }
   };
 
@@ -566,29 +538,41 @@ export const Canvas: React.FC = () => {
       segmentsToCreate.forEach(l => addShape(l));
   };
 
-  // Grid generation
+  // Grid generation - stroke width adjusts for zoom to maintain visual consistency
   const renderGrid = () => {
     const lines = [];
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    // When zoomed, we need to render more grid to cover visible area
+    const visibleWidth = window.innerWidth / viewport.scale;
+    const visibleHeight = window.innerHeight / viewport.scale;
+    const offsetX = -viewport.x / viewport.scale;
+    const offsetY = -viewport.y / viewport.scale;
+    
+    // Calculate grid bounds with some padding
+    const startCol = Math.floor(offsetX / GRID_SIZE) - 1;
+    const endCol = Math.ceil((offsetX + visibleWidth) / GRID_SIZE) + 1;
+    const startRow = Math.floor(offsetY / GRID_SIZE) - 1;
+    const endRow = Math.ceil((offsetY + visibleHeight) / GRID_SIZE) + 1;
+    
+    // Stroke width inversely proportional to scale so it looks the same on screen
+    const gridStrokeWidth = 1 / viewport.scale;
 
-    for (let i = 0; i < width / GRID_SIZE; i++) {
+    for (let i = startCol; i <= endCol; i++) {
       lines.push(
         <Line
           key={`v-${i}`}
-          points={[i * GRID_SIZE, 0, i * GRID_SIZE, height]}
+          points={[i * GRID_SIZE, startRow * GRID_SIZE, i * GRID_SIZE, endRow * GRID_SIZE]}
           stroke="#e5e7eb"
-          strokeWidth={1}
+          strokeWidth={gridStrokeWidth}
         />
       );
     }
-    for (let j = 0; j < height / GRID_SIZE; j++) {
+    for (let j = startRow; j <= endRow; j++) {
       lines.push(
         <Line
           key={`h-${j}`}
-          points={[0, j * GRID_SIZE, width, j * GRID_SIZE]}
+          points={[startCol * GRID_SIZE, j * GRID_SIZE, endCol * GRID_SIZE, j * GRID_SIZE]}
           stroke="#e5e7eb"
-          strokeWidth={1}
+          strokeWidth={gridStrokeWidth}
         />
       );
     }
@@ -620,6 +604,15 @@ export const Canvas: React.FC = () => {
   
   const attachedPointsToRender = getAttachedPointsToRender();
 
+  // Get cursor style based on tool
+  const getCursorClass = () => {
+    if (tool === 'select') return 'cursor-pointer';
+    if (tool === 'trim' || tool === 'eraser') return 'cursor-cell';
+    if (tool === 'point') return 'cursor-pointer';
+    if (tool === 'zoom') return 'cursor-zoom-in';
+    return 'cursor-crosshair';
+  };
+
   return (
     <Stage
       width={window.innerWidth}
@@ -629,9 +622,15 @@ export const Canvas: React.FC = () => {
       onMouseUp={handleMouseUp}
       onContextMenu={handleContextMenu}
       onDblClick={handleDblClick}
-      className={`bg-gray-50 ${tool === 'select' ? 'cursor-pointer' : tool === 'trim' || tool === 'eraser' ? 'cursor-cell' : tool === 'point' ? 'cursor-pointer' : 'cursor-crosshair'}`}
+      className={`bg-gray-50 ${getCursorClass()}`}
     >
-      <Layer>
+      {/* Main layer with viewport transformation */}
+      <Layer
+        x={viewport.x}
+        y={viewport.y}
+        scaleX={viewport.scale}
+        scaleY={viewport.scale}
+      >
         {renderGrid()}
         {shapes.map((shape) => (
           <ShapeObj
@@ -644,24 +643,15 @@ export const Canvas: React.FC = () => {
             onChange={(newAttrs) => updateShape(shape.id, newAttrs)}
             onTrim={(e) => {
                 const stage = e.target.getStage();
-                const pos = stage?.getPointerPosition();
-                if (pos) {
+                const screenPos = stage?.getPointerPosition();
+                if (screenPos) {
+                   const pos = screenToWorld(screenPos.x, screenPos.y);
                    handleTrim(shape.id, pos.x, pos.y);
                 }
             }}
           />
         ))}
-        {selectionBox && (
-            <Rect
-                x={Math.min(selectionBox.startX, selectionBox.currentX)}
-                y={Math.min(selectionBox.startY, selectionBox.currentY)}
-                width={Math.abs(selectionBox.currentX - selectionBox.startX)}
-                height={Math.abs(selectionBox.currentY - selectionBox.startY)}
-                fill={selectionBox.currentY > selectionBox.startY ? 'rgba(0, 0, 255, 0.1)' : 'rgba(0, 255, 0, 0.1)'}
-                stroke={selectionBox.currentY > selectionBox.startY ? 'blue' : 'green'}
-                dash={[5, 5]}
-            />
-        )}
+        <SelectionBoxOverlay selectionBox={selectionBox} viewportScale={viewport.scale} />
         {/* Ortho Mode Axes - show when shift is held and object is selected */}
         {isShiftPressed && selectedIds.length > 0 && tool === 'select' && (() => {
           const center = getSelectedShapeCenter();
@@ -669,29 +659,32 @@ export const Canvas: React.FC = () => {
           return (
             <OrthoAxes 
               center={center} 
-              screenWidth={window.innerWidth} 
-              screenHeight={window.innerHeight} 
+              screenWidth={window.innerWidth / viewport.scale} 
+              screenHeight={window.innerHeight / viewport.scale} 
             />
           );
         })()}
-        <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} />
+        <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} viewportScale={viewport.scale} />
         {/* Segment intersection points (垂足) - show as X marks */}
-        {segmentIntersections.map((point, i) => (
-          <React.Fragment key={`intersection-${i}`}>
-            <Line
-              points={[point.x - 5, point.y - 5, point.x + 5, point.y + 5]}
-              stroke="#f97316"
-              strokeWidth={2}
-              listening={false}
-            />
-            <Line
-              points={[point.x - 5, point.y + 5, point.x + 5, point.y - 5]}
-              stroke="#f97316"
-              strokeWidth={2}
-              listening={false}
-            />
-          </React.Fragment>
-        ))}
+        {segmentIntersections.map((point, i) => {
+          const size = 5 / viewport.scale;
+          return (
+            <React.Fragment key={`intersection-${i}`}>
+              <Line
+                points={[point.x - size, point.y - size, point.x + size, point.y + size]}
+                stroke="#f97316"
+                strokeWidth={2 / viewport.scale}
+                listening={false}
+              />
+              <Line
+                points={[point.x - size, point.y + size, point.x + size, point.y - size]}
+                stroke="#f97316"
+                strokeWidth={2 / viewport.scale}
+                listening={false}
+              />
+            </React.Fragment>
+          );
+        })}
         {/* Triangle tool preview */}
         <TrianglePreview drawState={trianglePreview.drawState} previewPoint={trianglePreview.previewPoint} />
         {/* Render attached points */}
@@ -700,13 +693,17 @@ export const Canvas: React.FC = () => {
             key={point.id}
             x={position.x}
             y={position.y}
-            radius={5}
+            radius={5 / viewport.scale}
             fill="black"
             stroke="black"
-            strokeWidth={1}
+            strokeWidth={1 / viewport.scale}
             listening={false}
           />
         ))}
+      </Layer>
+      {/* UI Layer - no transformation (screen coordinates) */}
+      <Layer>
+        <ZoomBoxOverlay zoomBox={zoomBox} />
       </Layer>
     </Stage>
   );

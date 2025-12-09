@@ -34,9 +34,13 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
   const shapes = useStore((state) => state.shapes);
   const segmentAttachments = useStore((state) => state.segmentAttachments);
   const updateShape = useStore((state) => state.updateShape);
+  const viewportScale = useStore((state) => state.viewport.scale);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const [isDraggingShape, setIsDraggingShape] = React.useState(false);
+  
+  // Stroke width that maintains consistent visual appearance regardless of zoom
+  const strokeWidth = 1 / viewportScale;
 
   // Update attached segments during drag
   const updateAttachedSegmentsDuringDrag = useCallback((currentX: number, currentY: number) => {
@@ -85,6 +89,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
         y={shape.y}
         rotation={shape.rotation}
         stroke={shape.stroke}
+        strokeWidth={strokeWidth}
         fill={shape.fill}
         id={shape.id}
         points={shape.points}
@@ -137,10 +142,10 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
               key={i}
               x={absX}
               y={absY}
-              radius={4}
+              radius={4 / viewportScale}
               fill={isVertexSelected ? "red" : "white"}
               stroke="#3b82f6"
-              strokeWidth={1}
+              strokeWidth={strokeWidth}
               draggable
               onDragMove={(e) => {
                 const { newPoints } = calculateVertexDrag(e, shape, i, !!isVertexSelected, selectedVertexIndices[shape.id], isShiftPressed);
