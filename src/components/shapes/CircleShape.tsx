@@ -25,6 +25,7 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
   const shapeRef = useRef<Konva.Circle>(null);
   const trRef = useRef<Konva.Transformer>(null);
   const isShiftPressed = useStore((state) => state.isShiftPressed);
+  const isAltPressed = useStore((state) => state.isAltPressed);
   const tool = useStore((state) => state.tool);
   const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
@@ -61,16 +62,18 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
         fill={shape.fill}
         id={shape.id}
         radius={shape.radius}
-        draggable={isSelected && tool === 'select'}
+        draggable={tool === 'select'}
         onClick={handleClick}
         onTap={handleClick}
         onMouseEnter={(e) => {
-          if (isSelected && tool === 'select') setCursor('grab', e);
+          if (tool === 'select') setCursor('grab', e);
         }}
         onMouseLeave={(e) => {
           if (!isDraggingShape) setCursor('', e);
         }}
         onDragStart={(e) => {
+          // Select shape when starting to drag (allows click-and-drag in one motion)
+          if (!isSelected) onSelect();
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
           setIsDraggingShape(true);
           setCursor('grabbing', e);
@@ -101,7 +104,7 @@ export const CircleShape: React.FC<CircleShapeProps> = ({
           boundBoxFunc={limitResizeBoundBoxFunc}
         />
       )}
-      {isSelected && tool === 'select' && vertexEditMode && !isDraggingShape && (
+      {isSelected && tool === 'select' && vertexEditMode && !isDraggingShape && !isAltPressed && (
         <>
            {/* Center Point */}
            <Circle

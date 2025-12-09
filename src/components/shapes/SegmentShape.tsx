@@ -25,6 +25,7 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
   const shapeRef = useRef<Konva.Line>(null);
   const trRef = useRef<Konva.Transformer>(null);
   const isShiftPressed = useStore((state) => state.isShiftPressed);
+  const isAltPressed = useStore((state) => state.isAltPressed);
   const tool = useStore((state) => state.tool);
   const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
@@ -64,16 +65,18 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
         points={shape.points}
         closed={false}
         hitStrokeWidth={20}
-        draggable={isSelected && tool === 'select'}
+        draggable={tool === 'select'}
         onClick={handleClick}
         onTap={handleClick}
         onMouseEnter={(e) => {
-          if (isSelected && tool === 'select') setCursor('grab', e);
+          if (tool === 'select') setCursor('grab', e);
         }}
         onMouseLeave={(e) => {
           if (!isDraggingShape) setCursor('', e);
         }}
         onDragStart={(e) => {
+          // Select shape when starting to drag (allows click-and-drag in one motion)
+          if (!isSelected) onSelect();
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
           setIsDraggingShape(true);
           setCursor('grabbing', e);
@@ -96,7 +99,7 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
         }}
         ref={shapeRef}
       />
-      {isSelected && tool === 'select' && vertexEditMode && shape.points && !isDraggingShape && (
+      {isSelected && tool === 'select' && vertexEditMode && shape.points && !isDraggingShape && !isAltPressed && (
          Array.from({ length: shape.points.length / 2 }).map((_, i) => {
              const { x: absX, y: absY } = calculateVertexPos(shape, i);
              const isVertexSelected = selectedVertexIndices[shape.id]?.includes(i);

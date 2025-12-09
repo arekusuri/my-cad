@@ -1,56 +1,24 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Stage, Layer, Line, Rect } from 'react-konva';
 import { useStore, type Shape } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
 import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIntersectRect, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
 import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
-import { constrainToSquare, constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
+import { constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
+import { useDrawingTools } from './tools/useDrawingTools';
+import { TrianglePreview } from './tools/TrianglePreview';
 
 const GRID_SIZE = 20;
 
-// Triangle drawing state
-interface TriangleDrawState {
-  p1: { x: number; y: number };
-  p2?: { x: number; y: number };
-}
-
 export const Canvas: React.FC = () => {
-  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, setVertexEditMode } = useStore();
+  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices } = useStore();
   const isShiftPressed = useStore((state) => state.isShiftPressed);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const drawingShapeId = useRef<string | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [hoveredSnapPoint, setHoveredSnapPoint] = useState<SnapPoint | null>(null);
   
   // Vertex drag with Escape cancellation (encapsulated in AutoSnappingMode)
   const { draggingVertex, startDrag, endDrag } = useVertexDrag(updateShape);
-  
-  // Triangle tool multi-click state
-  const [triangleDrawState, setTriangleDrawState] = useState<TriangleDrawState | null>(null);
-  const [trianglePreviewPoint, setTrianglePreviewPoint] = useState<{ x: number; y: number } | null>(null);
-  
-  // Reset triangle state when tool changes
-  useEffect(() => {
-    if (tool !== 'triangle') {
-      setTriangleDrawState(null);
-      setTrianglePreviewPoint(null);
-    }
-  }, [tool]);
-  
-  // Handle Escape key to cancel triangle drawing
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && tool === 'triangle' && triangleDrawState) {
-        setTriangleDrawState(null);
-        setTrianglePreviewPoint(null);
-        useStore.getState().setTool('select');
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [tool, triangleDrawState]);
   
   // Calculate selected shape center for ortho axes
   const getSelectedShapeCenter = (): { x: number; y: number } | null => {
@@ -74,10 +42,10 @@ export const Canvas: React.FC = () => {
   };
 
   // Snap function
-  const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
+  const snapToGrid = useCallback((val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE, []);
 
   // Find snap point (vertex of other shapes)
-  const findSnapPoint = (x: number, y: number, excludeShapeId?: string | null): Point | null => {
+  const findSnapPoint = useCallback((x: number, y: number, excludeShapeId?: string | null): Point | null => {
       let closestPoint: Point | null = null;
       let minDist = 10; // Snap threshold
 
@@ -105,14 +73,30 @@ export const Canvas: React.FC = () => {
       });
 
       return closestPoint;
-  };
+  }, [shapes]);
+
+  // Drawing tools (encapsulated - handles all shapes: circle, rect, segment, polygon, triangle)
+  const drawingTools = useDrawingTools({ snapToGrid, findSnapPoint });
+
+  // Handle Escape key to cancel drawing
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && drawingTools.isDrawing) {
+        drawingTools.cancel();
+        useStore.getState().setTool('select');
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [drawingTools]);
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Only allow left click for drawing/selecting
     if (e.evt.button !== 0) return;
 
-    // Check if we are clicking a highlighted vertex to drag
-    if (tool === 'select' && hoveredSnapPoint && hoveredSnapPoint.type === 'vertex') {
+    // Check if we are clicking a highlighted vertex to drag (but not in Alt mode - Alt is for snapping only)
+    if (tool === 'select' && hoveredSnapPoint && hoveredSnapPoint.type === 'vertex' && !e.evt.altKey) {
         startDrag(hoveredSnapPoint, shapes);
         return;
     }
@@ -137,131 +121,23 @@ export const Canvas: React.FC = () => {
       }
     }
 
-    if (tool !== 'rect' && tool !== 'circle' && tool !== 'segment' && tool !== 'triangle' && tool !== 'polygon') return;
-
-    // Start drawing
+    // Get position for drawing tools
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
-    // Check for Alt key to enable snapping
-    const isSnappingEnabled = e.evt.altKey;
-
-    let x = pos.x;
-    let y = pos.y;
-
-    if (isSnappingEnabled) {
-        x = snapToGrid(pos.x);
-        y = snapToGrid(pos.y);
-
-        // Check for vertex/midpoint snap for start point
-        const vertexSnap = findSnapPoint(pos.x, pos.y);
-        if (vertexSnap) {
-            x = vertexSnap.x;
-            y = vertexSnap.y;
-        }
-    }
-
-    // Triangle tool: multi-click handling
-    if (tool === 'triangle') {
-        const isOrthoEnabled = e.evt.shiftKey;
-        
-        if (!triangleDrawState) {
-            // First click: set point 1
-            setTriangleDrawState({ p1: { x, y } });
-            setTrianglePreviewPoint({ x, y });
-        } else if (!triangleDrawState.p2) {
-            // Second click: set point 2
-            let finalX = x;
-            let finalY = y;
-            
-            // Constrain to X/Y axis if Shift is held
-            if (isOrthoEnabled) {
-                const constrained = constrainToAxis(triangleDrawState.p1, { x, y });
-                finalX = constrained.x;
-                finalY = constrained.y;
-            }
-            
-            setTriangleDrawState({ ...triangleDrawState, p2: { x: finalX, y: finalY } });
-            setTrianglePreviewPoint({ x: finalX, y: finalY });
-        } else {
-            // Third click: finalize triangle
-            const { p1, p2 } = triangleDrawState;
-            let finalX = x;
-            let finalY = y;
-            
-            // Constrain to X/Y axis from p2 if Shift is held
-            if (isOrthoEnabled) {
-                const constrained = constrainToAxis(p2, { x, y });
-                finalX = constrained.x;
-                finalY = constrained.y;
-            }
-            
-            const p3 = { x: finalX, y: finalY };
-            
-            // Create triangle with points relative to p1 (origin)
-            addShape({
-                type: 'triangle',
-                x: p1.x,
-                y: p1.y,
-                stroke: 'black',
-                rotation: 0,
-                points: [
-                    0, 0,                           // p1 relative to origin
-                    p2.x - p1.x, p2.y - p1.y,       // p2 relative to origin
-                    p3.x - p1.x, p3.y - p1.y        // p3 relative to origin
-                ],
-            });
-            
-            // Reset triangle drawing state
-            setTriangleDrawState(null);
-            setTrianglePreviewPoint(null);
-        }
-        return;
-    }
-    
-    const newShapeBase = {
-        x,
-        y,
-        stroke: 'black',
-        rotation: 0,
+    // Delegate to drawing tools (all shapes including triangle)
+    const drawingEvent = {
+      x: pos.x,
+      y: pos.y,
+      shiftKey: e.evt.shiftKey,
+      altKey: e.evt.altKey,
+      button: e.evt.button,
     };
-
-    if (tool === 'rect') {
-      addShape({
-        ...newShapeBase,
-        type: 'rect',
-        width: 0,
-        height: 0,
-      });
-    } else if (tool === 'circle') {
-      addShape({
-        ...newShapeBase,
-        type: 'circle',
-        radius: 0,
-      });
-    } else if (tool === 'segment') {
-      addShape({
-        ...newShapeBase,
-        type: 'segment',
-        x, 
-        y, 
-        points: [0, 0, 0, 0], // Points relative to origin
-      });
-    } else if (tool === 'polygon') {
-      addShape({
-        ...newShapeBase,
-        type: 'polygon',
-        radius: 0,
-      });
-    }
-
-    // Get the ID of the newly added shape
-    const currentShapes = useStore.getState().shapes;
-    const newShape = currentShapes[currentShapes.length - 1];
-    if (newShape) {
-        drawingShapeId.current = newShape.id;
-        setIsDrawing(true);
+    
+    const result = drawingTools.handleMouseDown(drawingEvent);
+    if (result.handled) {
+      return;
     }
   };
 
@@ -337,156 +213,44 @@ export const Canvas: React.FC = () => {
     // Check for Alt key for highlighting and snapping
     const isSnappingEnabled = e.evt.altKey;
 
-    // 2. Snap Point Highlight (Select Mode OR Drawing Mode)
-    // In drawing mode (line, rect, etc), we still want to highlight vertices/midpoints to show snap targets
-    if (isSnappingEnabled && ((tool === 'select' && !isDrawing) || (tool !== 'select' && !isDrawing))) {
+    // Snap Point Highlight - show during select mode or while drawing with Alt key
+    if (isSnappingEnabled) {
         const closest = findClosestSnapPoint(pos, shapes);
         setHoveredSnapPoint(closest);
     } else {
         setHoveredSnapPoint(null);
     }
 
-    // Triangle tool preview update
-    if (tool === 'triangle' && triangleDrawState) {
-        let previewX = pos.x;
-        let previewY = pos.y;
-        
-        if (isSnappingEnabled) {
-            const vertexSnap = findSnapPoint(pos.x, pos.y);
-            if (vertexSnap) {
-                previewX = vertexSnap.x;
-                previewY = vertexSnap.y;
-            } else {
-                previewX = snapToGrid(pos.x);
-                previewY = snapToGrid(pos.y);
-            }
-        }
-        
-        // Constrain to X/Y axis if Shift is held
-        const isOrthoEnabled = e.evt.shiftKey;
-        if (isOrthoEnabled) {
-            // Constrain from p1 if drawing first segment, from p2 if drawing second
-            const referencePoint = triangleDrawState.p2 ?? triangleDrawState.p1;
-            const constrained = constrainToAxis(referencePoint, { x: previewX, y: previewY });
-            previewX = constrained.x;
-            previewY = constrained.y;
-        }
-        
-        setTrianglePreviewPoint({ x: previewX, y: previewY });
-        return;
-    }
-
-    // 3. Drawing Logic
-    if (!isDrawing || !drawingShapeId.current) return;
-
-    const currentShapes = useStore.getState().shapes;
-    const shape = currentShapes.find(s => s.id === drawingShapeId.current);
-    if (!shape) return;
-
-    const currentX = pos.x; 
-    const currentY = pos.y;
+    // Delegate to drawing tools (all shapes including triangle)
+    const drawingEvent = {
+      x: pos.x,
+      y: pos.y,
+      shiftKey: e.evt.shiftKey,
+      altKey: e.evt.altKey,
+      button: e.evt.button,
+    };
     
-    // Snap logic: Check for vertex snap first
-    let snapX = currentX;
-    let snapY = currentY;
-    
-    if (isSnappingEnabled) {
-        const vertexSnap = findSnapPoint(currentX, currentY, shape.id); // Don't snap to self
-        if (vertexSnap) {
-            snapX = vertexSnap.x;
-            snapY = vertexSnap.y;
-        } else {
-            snapX = snapToGrid(currentX);
-            snapY = snapToGrid(currentY);
-        }
-    }
-
-    const isShift = e.evt.shiftKey;
-
-    if (shape.type === 'rect') {
-      let width = snapX - shape.x;
-      let height = snapY - shape.y;
-
-      if (isShift) {
-        // Constrain to square using ortho mode
-        const constrained = constrainToSquare(width, height);
-        width = constrained.width;
-        height = constrained.height;
-      }
-
-      updateShape(shape.id, {
-        width,
-        height,
-      });
-    } else if (shape.type === 'circle' || shape.type === 'triangle' || shape.type === 'polygon') {
-      // For circle/triangle/polygon, constrain to axis means radius is measured along X or Y only
-      if (isShift) {
-          const constrained = constrainToAxis({ x: shape.x, y: shape.y }, { x: snapX, y: snapY });
-          snapX = constrained.x;
-          snapY = constrained.y;
-      }
-      
-      const dx = snapX - shape.x;
-      const dy = snapY - shape.y;
-      const radius = Math.sqrt(dx * dx + dy * dy);
-      
-      updateShape(shape.id, {
-        radius,
-      });
-    } else if (shape.type === 'segment') {
-      // Logic for Ortho mode
-      let endX = snapX - shape.x;
-      let endY = snapY - shape.y;
-
-      if (isShift) {
-          // Use ortho mode to constrain to H/V
-          const constrained = constrainLineToOrtho(0, 0, endX, endY);
-          endX = constrained.endX;
-          endY = constrained.endY;
-      } else {
-          // Auto-snap to vertical/horizontal if close
-          const angle = Math.atan2(endY, endX) * 180 / Math.PI;
-          const absAngle = Math.abs(angle);
-          const threshold = 5; // degrees
-
-          // Horizontal: 0 or 180 (which is +/- 180)
-          if (absAngle < threshold || Math.abs(absAngle - 180) < threshold) {
-              endY = 0;
-          }
-          // Vertical: 90 or -90
-          else if (Math.abs(absAngle - 90) < threshold) {
-              endX = 0;
-          }
-      }
-
-      updateShape(shape.id, {
-        points: [0, 0, endX, endY],
-      });
+    const result = drawingTools.handleMouseMove(drawingEvent);
+    if (result.handled) {
+      return;
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
     endDrag(); // Stop dragging vertex (clears saved shape)
 
-    if (isDrawing && drawingShapeId.current) {
-        const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
-        if (shape) {
-            // Check if shape is too small
-            if (shape.type === 'segment') {
-                const points = shape.points || [0,0,0,0];
-                if (Math.abs(points[2] - points[0]) < 1 && Math.abs(points[3] - points[1]) < 1) {
-                    deleteShape(shape.id);
-                }
-            } else if (shape.type === 'rect') {
-                if (Math.abs(shape.width || 0) < 1 || Math.abs(shape.height || 0) < 1) {
-                    deleteShape(shape.id);
-                }
-            } else if (shape.type === 'circle' || shape.type === 'triangle' || shape.type === 'polygon') {
-                if ((shape.radius || 0) < 1) {
-                    deleteShape(shape.id);
-                }
-            }
-        }
+    // Delegate to drawing tools
+    const stage = e.target.getStage();
+    const pos = stage?.getPointerPosition();
+    if (pos) {
+      const drawingEvent = {
+        x: pos.x,
+        y: pos.y,
+        shiftKey: e.evt.shiftKey,
+        altKey: e.evt.altKey,
+        button: e.evt.button,
+      };
+      drawingTools.handleMouseUp(drawingEvent);
     }
 
     if (selectionBox) {
@@ -560,9 +324,6 @@ export const Canvas: React.FC = () => {
         }
         setSelectionBox(null);
     }
-
-    setIsDrawing(false);
-    drawingShapeId.current = null;
   };
 
   const handleContextMenu = (e: Konva.KonvaEventObject<PointerEvent>) => {
@@ -724,6 +485,9 @@ export const Canvas: React.FC = () => {
     return lines;
   };
 
+  // Get triangle preview data
+  const trianglePreview = drawingTools.getTrianglePreview();
+
   return (
     <Stage
       width={window.innerWidth}
@@ -743,13 +507,7 @@ export const Canvas: React.FC = () => {
             shape={shape}
             isSelected={selectedIds.includes(shape.id)}
             onSelect={() => {
-              if (selectedIds.includes(shape.id)) {
-                if (tool === 'select') {
-                    setVertexEditMode(true);
-                }
-              } else {
-                selectShape(shape.id);
-              }
+              selectShape(shape.id);
             }}
             onChange={(newAttrs) => updateShape(shape.id, newAttrs)}
             onTrim={(e) => {
@@ -801,71 +559,7 @@ export const Canvas: React.FC = () => {
         })()}
         <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} />
         {/* Triangle tool preview */}
-        {tool === 'triangle' && triangleDrawState && trianglePreviewPoint && (
-          <>
-            {/* Line from p1 to current point (or p2 if set) */}
-            <Line
-              points={[
-                triangleDrawState.p1.x,
-                triangleDrawState.p1.y,
-                triangleDrawState.p2?.x ?? trianglePreviewPoint.x,
-                triangleDrawState.p2?.y ?? trianglePreviewPoint.y,
-              ]}
-              stroke="#3b82f6"
-              strokeWidth={1}
-              dash={[5, 5]}
-              listening={false}
-            />
-            {/* If p2 is set, show the full triangle preview */}
-            {triangleDrawState.p2 && (
-              <>
-                <Line
-                  points={[
-                    triangleDrawState.p2.x,
-                    triangleDrawState.p2.y,
-                    trianglePreviewPoint.x,
-                    trianglePreviewPoint.y,
-                  ]}
-                  stroke="#3b82f6"
-                  strokeWidth={1}
-                  dash={[5, 5]}
-                  listening={false}
-                />
-                <Line
-                  points={[
-                    trianglePreviewPoint.x,
-                    trianglePreviewPoint.y,
-                    triangleDrawState.p1.x,
-                    triangleDrawState.p1.y,
-                  ]}
-                  stroke="#3b82f6"
-                  strokeWidth={1}
-                  dash={[5, 5]}
-                  listening={false}
-                />
-              </>
-            )}
-            {/* Point markers */}
-            <Rect
-              x={triangleDrawState.p1.x - 3}
-              y={triangleDrawState.p1.y - 3}
-              width={6}
-              height={6}
-              fill="#3b82f6"
-              listening={false}
-            />
-            {triangleDrawState.p2 && (
-              <Rect
-                x={triangleDrawState.p2.x - 3}
-                y={triangleDrawState.p2.y - 3}
-                width={6}
-                height={6}
-                fill="#3b82f6"
-                listening={false}
-              />
-            )}
-          </>
-        )}
+        <TrianglePreview drawState={trianglePreview.drawState} previewPoint={trianglePreview.previewPoint} />
       </Layer>
     </Stage>
   );

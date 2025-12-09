@@ -118,8 +118,10 @@ export function isShapeInRect(shape: Shape, rect: { x: number; y: number; width:
         const r = shape.radius || 0;
         // Check bounding box of circle
         return contains(shape.x - r, shape.y - r) && contains(shape.x + r, shape.y + r);
-    } else if (shape.type === 'segment') {
+    } else if (shape.type === 'segment' || shape.type === 'triangle' || shape.type === 'polygon') {
         const points = shape.points || [];
+        if (points.length < 2) return false;
+        
         const rad = (shape.rotation * Math.PI) / 180;
         const cos = Math.cos(rad);
         const sin = Math.sin(rad);
@@ -168,8 +170,10 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
         const dy = shape.y - cy;
         return (dx * dx + dy * dy) <= ((shape.radius || 0) * (shape.radius || 0));
         
-    } else if (shape.type === 'segment') {
+    } else if (shape.type === 'segment' || shape.type === 'triangle' || shape.type === 'polygon') {
          const points = shape.points || [];
+         if (points.length < 2) return false;
+         
          const rad = (shape.rotation * Math.PI) / 180;
          const cos = Math.cos(rad);
          const sin = Math.sin(rad);
@@ -183,9 +187,10 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
             transformedPoints.push({ x: shape.x + rx, y: shape.y + ry });
          }
 
-        // Check segments
+        // Check segments - triangles and polygons are closed, segments are open
         const numPoints = transformedPoints.length;
-        const numSegments = numPoints - 1; // Segments are open (not closed)
+        const isClosed = shape.type === 'triangle' || shape.type === 'polygon';
+        const numSegments = isClosed ? numPoints : numPoints - 1;
 
         for (let i = 0; i < numSegments; i++) {
             const p1 = transformedPoints[i];

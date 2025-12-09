@@ -25,6 +25,7 @@ export const RectShape: React.FC<RectShapeProps> = ({
   const shapeRef = useRef<Konva.Rect>(null);
   const trRef = useRef<Konva.Transformer>(null);
   const isShiftPressed = useStore((state) => state.isShiftPressed);
+  const isAltPressed = useStore((state) => state.isAltPressed);
   const tool = useStore((state) => state.tool);
   const vertexEditMode = useStore((state) => state.vertexEditMode);
   const deleteShape = useStore((state) => state.deleteShape);
@@ -64,16 +65,18 @@ export const RectShape: React.FC<RectShapeProps> = ({
         id={shape.id}
         width={shape.width}
         height={shape.height}
-        draggable={isSelected && tool === 'select'}
+        draggable={tool === 'select'}
         onClick={handleClick}
         onTap={handleClick}
         onMouseEnter={(e) => {
-          if (isSelected && tool === 'select') setCursor('grab', e);
+          if (tool === 'select') setCursor('grab', e);
         }}
         onMouseLeave={(e) => {
           if (!isDraggingShape) setCursor('', e);
         }}
         onDragStart={(e) => {
+          // Select shape when starting to drag (allows click-and-drag in one motion)
+          if (!isSelected) onSelect();
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
           setIsDraggingShape(true);
           setCursor('grabbing', e);
@@ -104,7 +107,7 @@ export const RectShape: React.FC<RectShapeProps> = ({
           boundBoxFunc={limitResizeBoundBoxFunc}
         />
       )}
-      {isSelected && tool === 'select' && vertexEditMode && !isDraggingShape && (
+      {isSelected && tool === 'select' && vertexEditMode && !isDraggingShape && !isAltPressed && (
          corners.map((pos, i) => (
              <Circle
                 key={i}

@@ -6,6 +6,7 @@ import { useStore } from './store/useStore';
 
 function App() {
   const setShiftPressed = useStore((state) => state.setShiftPressed);
+  const setAltPressed = useStore((state) => state.setAltPressed);
   const deleteShape = useStore((state) => state.deleteShape);
   const selectedIds = useStore((state) => state.selectedIds);
 
@@ -13,6 +14,9 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
         setShiftPressed(true);
+      }
+      if (e.key === 'Alt') {
+        setAltPressed(true);
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
           const activeTag = document.activeElement?.tagName.toLowerCase();
@@ -25,6 +29,9 @@ function App() {
       if (e.key === 'Shift') {
         setShiftPressed(false);
       }
+      if (e.key === 'Alt') {
+        setAltPressed(false);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -34,7 +41,7 @@ function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [setShiftPressed, deleteShape, selectedIds]);
+  }, [setShiftPressed, setAltPressed, deleteShape, selectedIds]);
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-gray-50">

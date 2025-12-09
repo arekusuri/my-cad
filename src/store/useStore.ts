@@ -24,6 +24,7 @@ interface StoreState {
   vertexEditMode: boolean;
   tool: 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim';
   isShiftPressed: boolean;
+  isAltPressed: boolean;
   
   setTool: (tool: 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim') => void;
   setVertexEditMode: (enabled: boolean) => void;
@@ -33,6 +34,7 @@ interface StoreState {
   selectVertices: (indices: Record<string, number[]>) => void;
   deleteShape: (id: string) => void;
   setShiftPressed: (pressed: boolean) => void;
+  setAltPressed: (pressed: boolean) => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -42,6 +44,7 @@ export const useStore = create<StoreState>((set) => ({
   vertexEditMode: false,
   tool: 'select',
   isShiftPressed: false,
+  isAltPressed: false,
 
   setTool: (tool) => set({ tool, selectedIds: [], selectedVertexIndices: {}, vertexEditMode: false }),
   setVertexEditMode: (enabled) => set({ vertexEditMode: enabled }),
@@ -54,7 +57,7 @@ export const useStore = create<StoreState>((set) => ({
   selectShape: (id) => set({ 
     selectedIds: id === null ? [] : Array.isArray(id) ? id : [id],
     selectedVertexIndices: {}, // Clear vertex selection when shape selection changes
-    vertexEditMode: false,
+    vertexEditMode: id !== null, // Directly enter vertex edit mode when selecting
   }),
   selectVertices: (indices) => set({ selectedVertexIndices: indices }),
   deleteShape: (id) => set((state) => ({
@@ -63,4 +66,5 @@ export const useStore = create<StoreState>((set) => ({
     selectedVertexIndices: { ...state.selectedVertexIndices, [id]: [] }
   })),
   setShiftPressed: (pressed) => set({ isShiftPressed: pressed }),
+  setAltPressed: (pressed) => set({ isAltPressed: pressed }),
 }));
