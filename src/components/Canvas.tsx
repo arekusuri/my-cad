@@ -12,6 +12,7 @@ import { useSelectionMode, SelectionBoxOverlay } from './modes/SelectionMode';
 import { useDrawingTools } from './tools/useDrawingTools';
 import type { SnapPointInfo } from './tools/DrawingTool';
 import { TrianglePreview, getTriangleAttachedPoints, hasTriangleAttachedPointAt, updateTriangleAttachedSegments } from './shapes/triangle';
+import { getCircumcenterPoint } from './shapes/triangle/TriangleCircumcenter';
 import { getPolygonAttachedPoints, hasPolygonAttachedPointAt, updatePolygonAttachedSegments } from './shapes/polygon';
 
 const GRID_SIZE = 20;
@@ -95,6 +96,18 @@ export const Canvas: React.FC = () => {
                   closestPoint = m;
               }
           });
+
+          // Check circumcenter
+          if (shape.type === 'triangle' && shape.showCircumcenter) {
+              const circumcenter = getCircumcenterPoint(shape);
+              if (circumcenter) {
+                  const d = Math.sqrt(Math.pow(circumcenter.x - x, 2) + Math.pow(circumcenter.y - y, 2));
+                  if (d < minDist) {
+                      minDist = d;
+                      closestPoint = circumcenter;
+                  }
+              }
+          }
       });
 
       return closestPoint;
@@ -126,6 +139,18 @@ export const Canvas: React.FC = () => {
                   closest = { x: m.x, y: m.y, shapeId: shape.id, type: 'midpoint', index: i };
               }
           });
+
+          // Check circumcenter
+          if (shape.type === 'triangle' && shape.showCircumcenter) {
+              const circumcenter = getCircumcenterPoint(shape);
+              if (circumcenter) {
+                  const d = Math.sqrt(Math.pow(circumcenter.x - x, 2) + Math.pow(circumcenter.y - y, 2));
+                  if (d < minDist) {
+                      minDist = d;
+                      closest = { x: circumcenter.x, y: circumcenter.y, shapeId: shape.id, type: 'circumcenter', index: 0 };
+                  }
+              }
+          }
       });
 
       return closest;

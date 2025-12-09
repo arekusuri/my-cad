@@ -1,6 +1,7 @@
 import type { Shape, AttachedPoint, SegmentAttachment } from '../../../store/useStore';
 import type { Point } from '../../../utils/geometry';
 import { getShapeVertices, getShapeMidpoints } from '../../../utils/geometry';
+import { getCircumcenterPoint } from './TriangleCircumcenter';
 
 /**
  * Calculate the absolute position of an attachment point on a triangle.
@@ -8,7 +9,7 @@ import { getShapeVertices, getShapeMidpoints } from '../../../utils/geometry';
  */
 export function getAttachmentPosition(
     shape: Shape,
-    attachType: 'vertex' | 'midpoint',
+    attachType: 'vertex' | 'midpoint' | 'circumcenter',
     index: number
 ): Point | null {
     if (shape.type !== 'triangle') return null;
@@ -23,6 +24,8 @@ export function getAttachmentPosition(
         if (index < midpoints.length) {
             return midpoints[index];
         }
+    } else if (attachType === 'circumcenter') {
+        return getCircumcenterPoint(shape);
     }
     
     return null;
@@ -67,7 +70,7 @@ export function getTriangleAttachedPoints(
  */
 export function hasAttachedPointAt(
     shapeId: string,
-    attachType: 'vertex' | 'midpoint',
+    attachType: 'vertex' | 'midpoint' | 'circumcenter',
     index: number,
     attachedPoints: AttachedPoint[]
 ): boolean {

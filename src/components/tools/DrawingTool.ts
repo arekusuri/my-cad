@@ -7,7 +7,7 @@ export interface SnapPointInfo {
     x: number;
     y: number;
     shapeId: string;
-    type: 'vertex' | 'midpoint';
+    type: 'vertex' | 'midpoint' | 'circumcenter';
     index: number;
 }
 

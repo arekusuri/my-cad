@@ -3,6 +3,7 @@ import { Circle as KonvaCircle, RegularPolygon } from 'react-konva';
 import { type Shape } from '../../store/useStore';
 import { getShapeVertices, getShapeMidpoints } from '../../utils/geometry';
 import { constrainLineToOrtho } from './OrthoMode';
+import { getCircumcenterPoint } from '../shapes/triangle/TriangleCircumcenter';
 
 export interface DraggingVertex {
     shapeId: string;
@@ -74,7 +75,7 @@ export interface SnapPoint {
     index: number;
     x: number;
     y: number;
-    type: 'vertex' | 'midpoint';
+    type: 'vertex' | 'midpoint' | 'circumcenter';
 }
 
 interface SnapPointHighlightProps {
@@ -103,6 +104,20 @@ export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredS
                 fill="transparent"
                 listening={false}
                 rotation={0}
+            />
+        );
+    }
+    
+    if (hoveredSnapPoint.type === 'circumcenter') {
+        return (
+            <KonvaCircle
+                x={hoveredSnapPoint.x}
+                y={hoveredSnapPoint.y}
+                radius={5 / viewportScale}
+                stroke="purple"
+                strokeWidth={strokeWidth}
+                fill="transparent"
+                listening={false}
             />
         );
     }
@@ -150,6 +165,18 @@ export const findClosestSnapPoint = (
                 closest = { shapeId: shape.id, index: i, x: m.x, y: m.y, type: 'midpoint' };
             }
         });
+
+        // Check circumcenter (if enabled)
+        if (shape.type === 'triangle' && shape.showCircumcenter) {
+            const circumcenter = getCircumcenterPoint(shape);
+            if (circumcenter) {
+                const d = Math.sqrt(Math.pow(circumcenter.x - pos.x, 2) + Math.pow(circumcenter.y - pos.y, 2));
+                if (d < minDist) {
+                    minDist = d;
+                    closest = { shapeId: shape.id, index: 0, x: circumcenter.x, y: circumcenter.y, type: 'circumcenter' };
+                }
+            }
+        }
     });
     return closest;
 };

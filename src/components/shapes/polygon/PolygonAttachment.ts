@@ -67,7 +67,7 @@ export function getPolygonAttachedPoints(
  */
 export function hasAttachedPointAt(
     shapeId: string,
-    attachType: 'vertex' | 'midpoint',
+    attachType: 'vertex' | 'midpoint' | 'circumcenter',
     index: number,
     attachedPoints: AttachedPoint[]
 ): boolean {
