@@ -12,7 +12,7 @@ export interface AttachedPoint {
   index: number;
 }
 
-/** Tracks segment endpoint attachment to another shape's vertex/midpoint */
+/** Tracks segment endpoint attachment to another shape's vertex/midpoint/perpendicular */
 export interface SegmentAttachment {
   id: string;
   /** The segment being attached */
@@ -22,8 +22,8 @@ export interface SegmentAttachment {
   /** The shape this endpoint is attached to */
   targetShapeId: string;
   /** Type of attachment point */
-  attachType: 'vertex' | 'midpoint';
-  /** Index of the vertex or midpoint on target shape */
+  attachType: 'vertex' | 'midpoint' | 'perpendicular';
+  /** Index of the vertex, midpoint, or edge (for perpendicular) on target shape */
   targetIndex: number;
 }
 

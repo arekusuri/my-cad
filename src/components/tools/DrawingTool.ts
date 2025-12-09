@@ -1,6 +1,6 @@
 import { useStore, type Shape, type SegmentAttachment } from '../../store/useStore';
-import type { Point } from '../../utils/geometry';
-import { findLineIntersections } from '../../utils/geometry';
+import type { Point, PerpendicularFootInfo } from '../../utils/geometry';
+import { findLineIntersections, findPerpendicularFeet, findClosestPerpendicularFoot, findClosestPerpendicularFootInfo } from '../../utils/geometry';
 
 /** Full snap point info including the shape and point type */
 export interface SnapPointInfo {
@@ -23,6 +23,12 @@ export interface DrawingContext {
     findSnapPointInfo: (x: number, y: number, excludeShapeId?: string | null) => SnapPointInfo | null;
     /** Find intersection points between a line and all shape edges */
     findLineIntersections: (lineStart: Point, lineEnd: Point, excludeShapeId?: string | null) => Point[];
+    /** Find perpendicular feet (垂足) from a point to nearby shape edges */
+    findPerpendicularFeet: (point: Point, excludeShapeId?: string | null) => Point[];
+    /** Find the closest perpendicular foot for snapping */
+    findClosestPerpendicularFoot: (point: Point, excludeShapeId?: string | null) => Point | null;
+    /** Find the closest perpendicular foot with full info (for creating attachments) */
+    findClosestPerpendicularFootInfo: (point: Point, excludeShapeId?: string | null) => PerpendicularFootInfo | null;
     /** Add shape to store */
     addShape: (shape: Omit<Shape, 'id'>) => void;
     /** Update existing shape */
@@ -218,6 +224,18 @@ export function createDrawingContext(
         findLineIntersections: (lineStart: Point, lineEnd: Point, excludeShapeId?: string | null) => {
             const shapes = useStore.getState().shapes;
             return findLineIntersections(lineStart, lineEnd, shapes, excludeShapeId);
+        },
+        findPerpendicularFeet: (point: Point, excludeShapeId?: string | null) => {
+            const shapes = useStore.getState().shapes;
+            return findPerpendicularFeet(point, shapes, excludeShapeId);
+        },
+        findClosestPerpendicularFoot: (point: Point, excludeShapeId?: string | null) => {
+            const shapes = useStore.getState().shapes;
+            return findClosestPerpendicularFoot(point, shapes, excludeShapeId);
+        },
+        findClosestPerpendicularFootInfo: (point: Point, excludeShapeId?: string | null) => {
+            const shapes = useStore.getState().shapes;
+            return findClosestPerpendicularFootInfo(point, shapes, excludeShapeId);
         },
         addShape: store.addShape,
         updateShape: store.updateShape,

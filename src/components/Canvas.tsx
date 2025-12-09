@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Stage, Layer, Line, Circle as KonvaCircle } from 'react-konva';
 import { useStore, type Shape, type AttachedPoint } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
-import { getLineIntersection, distance, getRectLines, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
+import { getLineIntersection, distance, getRectLines, getShapeVertices, getShapeMidpoints, findPerpendicularIntersections, type Point } from '../utils/geometry';
 import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
+import { PerpendicularFootHighlight } from './modes/PerpendicularFootHighlight';
 import { constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
 import { OrthoAxes } from './modes/OrthoMode.tsx';
 import { useZoomMode, ZoomBoxOverlay } from './modes/ZoomMode';
@@ -582,8 +583,18 @@ export const Canvas: React.FC = () => {
   // Get triangle preview data
   const trianglePreview = drawingTools.getTrianglePreview();
   
-  // Get segment intersection points (垂足) for display during drawing
-  const segmentIntersections = drawingTools.getSegmentIntersections();
+  // Get perpendicular feet hints during segment drawing
+  const drawingPerpendicularFeet = drawingTools.getSegmentPerpendicularFeet();
+  
+  // Find perpendicular intersections (垂足) - show where two segments meet at right angles
+  const perpendicularIntersections = useMemo(() => {
+    return findPerpendicularIntersections(shapes);
+  }, [shapes]);
+  
+  // Combine: show perpendicular intersections for existing shapes + drawing hints
+  const allPerpendicularPoints = useMemo(() => {
+    return [...perpendicularIntersections, ...drawingPerpendicularFeet];
+  }, [perpendicularIntersections, drawingPerpendicularFeet]);
 
   // Calculate all attached point positions for rendering
   const getAttachedPointsToRender = useCallback(() => {
@@ -665,26 +676,7 @@ export const Canvas: React.FC = () => {
           );
         })()}
         <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} viewportScale={viewport.scale} />
-        {/* Segment intersection points (垂足) - show as X marks */}
-        {segmentIntersections.map((point, i) => {
-          const size = 5 / viewport.scale;
-          return (
-            <React.Fragment key={`intersection-${i}`}>
-              <Line
-                points={[point.x - size, point.y - size, point.x + size, point.y + size]}
-                stroke="#f97316"
-                strokeWidth={2 / viewport.scale}
-                listening={false}
-              />
-              <Line
-                points={[point.x - size, point.y + size, point.x + size, point.y - size]}
-                stroke="#f97316"
-                strokeWidth={2 / viewport.scale}
-                listening={false}
-              />
-            </React.Fragment>
-          );
-        })}
+        <PerpendicularFootHighlight perpendicularFeet={allPerpendicularPoints} viewportScale={viewport.scale} />
         {/* Triangle tool preview */}
         <TrianglePreview drawState={trianglePreview.drawState} previewPoint={trianglePreview.previewPoint} />
         {/* Render attached points */}

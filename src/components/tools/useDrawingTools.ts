@@ -6,7 +6,7 @@ import { RectDrawing } from '../shapes/rect/RectDrawing';
 import { SegmentDrawing } from '../shapes/segment/SegmentDrawing';
 import { PolygonDrawing } from '../shapes/polygon/PolygonDrawing';
 import { TriangleDrawing, type TriangleDrawState } from '../shapes/triangle/TriangleDrawing';
-import { type Point, findLineIntersections } from '../../utils/geometry';
+import { type Point, type PerpendicularFootInfo, findLineIntersections, findPerpendicularFeet, findClosestPerpendicularFoot, findClosestPerpendicularFootInfo } from '../../utils/geometry';
 
 interface UseDrawingToolsProps {
     snapToGrid: (val: number) => number;
@@ -70,6 +70,18 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
                 const shapes = useStore.getState().shapes;
                 return findLineIntersections(lineStart, lineEnd, shapes, excludeShapeId);
             },
+            findPerpendicularFeet: (point: Point, excludeShapeId?: string | null) => {
+                const shapes = useStore.getState().shapes;
+                return findPerpendicularFeet(point, shapes, excludeShapeId);
+            },
+            findClosestPerpendicularFoot: (point: Point, excludeShapeId?: string | null) => {
+                const shapes = useStore.getState().shapes;
+                return findClosestPerpendicularFoot(point, shapes, excludeShapeId);
+            },
+            findClosestPerpendicularFootInfo: (point: Point, excludeShapeId?: string | null) => {
+                const shapes = useStore.getState().shapes;
+                return findClosestPerpendicularFootInfo(point, shapes, excludeShapeId);
+            },
             addShape,
             updateShape,
             deleteShape,
@@ -125,11 +137,11 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         return triangleTool.getPreviewData();
     }, []);
     
-    // Get segment intersection points (垂足) during drawing
-    const getSegmentIntersections = useCallback((): Point[] => {
+    // Get segment perpendicular feet (垂足) during drawing
+    const getSegmentPerpendicularFeet = useCallback((): Point[] => {
         const segmentTool = toolsRef.current['segment'] as SegmentDrawing;
         const data = segmentTool.getPreviewData();
-        return data.intersectionPoints || [];
+        return data.perpendicularFeet || [];
     }, []);
     
     return {
@@ -147,7 +159,7 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         cancel,
         /** Get triangle preview data for rendering */
         getTrianglePreview,
-        /** Get segment intersection points for display */
-        getSegmentIntersections,
+        /** Get segment perpendicular feet (垂足) for display */
+        getSegmentPerpendicularFeet,
     };
 }

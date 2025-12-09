@@ -57,6 +57,91 @@ export function distance(p1: Point, p2: Point): number {
   return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
 }
 
+/**
+ * Check if two line segments are perpendicular (at right angles).
+ * Uses dot product of direction vectors - perpendicular when dot product ≈ 0.
+ */
+export function areSegmentsPerpendicular(
+    seg1Start: Point,
+    seg1End: Point,
+    seg2Start: Point,
+    seg2End: Point,
+    tolerance: number = 0.05
+): boolean {
+    // Direction vectors
+    const dx1 = seg1End.x - seg1Start.x;
+    const dy1 = seg1End.y - seg1Start.y;
+    const dx2 = seg2End.x - seg2Start.x;
+    const dy2 = seg2End.y - seg2Start.y;
+    
+    // Normalize
+    const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+    const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+    
+    if (len1 < 0.001 || len2 < 0.001) return false;
+    
+    const nx1 = dx1 / len1;
+    const ny1 = dy1 / len1;
+    const nx2 = dx2 / len2;
+    const ny2 = dy2 / len2;
+    
+    // Dot product - perpendicular when ≈ 0
+    const dot = nx1 * nx2 + ny1 * ny2;
+    return Math.abs(dot) < tolerance;
+}
+
+/**
+ * Find intersection points where segments are perpendicular to any shape edge.
+ * Returns array of points where a segment crosses/attaches to another edge at right angles.
+ */
+export function findPerpendicularIntersections(shapes: Shape[]): Point[] {
+    const intersections: Point[] = [];
+    
+    // Get all segment shapes (the lines we're checking)
+    const segments: { start: Point; end: Point }[] = [];
+    shapes.forEach(shape => {
+        if (shape.type === 'segment') {
+            const vertices = getShapeVertices(shape);
+            if (vertices.length >= 2) {
+                segments.push({ start: vertices[0], end: vertices[1] });
+            }
+        }
+    });
+    
+    // Get all edges from all shapes (segments, triangles, rectangles, polygons)
+    const allEdges: { start: Point; end: Point }[] = [];
+    shapes.forEach(shape => {
+        const edges = getShapeEdges(shape);
+        edges.forEach(([p1, p2]) => {
+            allEdges.push({ start: p1, end: p2 });
+        });
+    });
+    
+    // Check each segment against all edges for perpendicular intersections
+    for (const seg of segments) {
+        for (const edge of allEdges) {
+            // Skip if it's the same edge (segment checking against itself)
+            if (distance(seg.start, edge.start) < 1 && distance(seg.end, edge.end) < 1) continue;
+            if (distance(seg.start, edge.end) < 1 && distance(seg.end, edge.start) < 1) continue;
+            
+            // Check if perpendicular
+            if (areSegmentsPerpendicular(seg.start, seg.end, edge.start, edge.end)) {
+                // Find intersection point
+                const intersection = getLineIntersection(seg.start, seg.end, edge.start, edge.end);
+                if (intersection) {
+                    // Check for duplicates
+                    const isDuplicate = intersections.some(p => distance(p, intersection) < 1);
+                    if (!isDuplicate) {
+                        intersections.push(intersection);
+                    }
+                }
+            }
+        }
+    }
+    
+    return intersections;
+}
+
 export function getRectLines(x: number, y: number, w: number, h: number, rotation: number = 0) {
     // If rotation is 0:
     if (rotation === 0) {
@@ -344,7 +429,6 @@ export function getShapeEdges(shape: Shape): [Point, Point][] {
 
 /**
  * Find all intersection points between a line segment and all edges of other shapes.
- * Used for showing 垂足 (perpendicular foot / intersection points) during drawing.
  */
 export function findLineIntersections(
     lineStart: Point,
@@ -376,6 +460,155 @@ export function findLineIntersections(
     });
     
     return intersections;
+}
+
+/**
+ * Calculate the perpendicular foot (垂足) from a point to a line segment.
+ * The perpendicular foot is the closest point on the segment to the given point.
+ * 
+ * @param point The point to project
+ * @param segStart Start of the line segment
+ * @param segEnd End of the line segment
+ * @param strict If true, returns null if foot is near endpoints (for initial snap). Default false.
+ * @returns The perpendicular foot point, or null if projection falls outside segment
+ */
+export function getPerpendicularFoot(
+    point: Point,
+    segStart: Point,
+    segEnd: Point,
+    strict: boolean = false
+): Point | null {
+    const dx = segEnd.x - segStart.x;
+    const dy = segEnd.y - segStart.y;
+    const lenSq = dx * dx + dy * dy;
+    
+    // Degenerate segment (zero length)
+    if (lenSq < 0.0001) return null;
+    
+    // Calculate projection parameter t
+    // t = dot(point - segStart, segEnd - segStart) / |segEnd - segStart|^2
+    const t = ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lenSq;
+    
+    // Check if projection falls within the segment
+    if (strict) {
+        // For initial snap, avoid endpoints
+        if (t < 0.05 || t > 0.95) return null;
+    } else {
+        // For attachment following, allow full range but clamp to segment
+        if (t < 0 || t > 1) return null;
+    }
+    
+    // Calculate the perpendicular foot
+    return {
+        x: segStart.x + t * dx,
+        y: segStart.y + t * dy,
+    };
+}
+
+/**
+ * Find perpendicular feet (垂足) from a point to all nearby shape edges.
+ * Used during segment drawing to show where perpendicular connections can be made.
+ * 
+ * @param point The current mouse/drawing position
+ * @param shapes All shapes to check
+ * @param excludeShapeId Shape ID to exclude (the shape being drawn)
+ * @param maxDistance Maximum distance to consider for perpendicular feet
+ * @returns Array of perpendicular foot points on nearby edges
+ */
+export function findPerpendicularFeet(
+    point: Point,
+    shapes: Shape[],
+    excludeShapeId?: string | null,
+    maxDistance: number = 50
+): Point[] {
+    const feet: Point[] = [];
+    
+    shapes.forEach(shape => {
+        if (excludeShapeId && shape.id === excludeShapeId) return;
+        
+        const edges = getShapeEdges(shape);
+        edges.forEach(([p1, p2]) => {
+            const foot = getPerpendicularFoot(point, p1, p2, true);  // strict mode for initial display
+            if (foot) {
+                // Check if foot is close enough to the point
+                const dist = distance(point, foot);
+                if (dist < maxDistance && dist > 3) {
+                    // Check for duplicates
+                    const isDuplicate = feet.some(p => distance(p, foot) < 1);
+                    if (!isDuplicate) {
+                        feet.push(foot);
+                    }
+                }
+            }
+        });
+    });
+    
+    return feet;
+}
+
+/**
+ * Info about a perpendicular foot snap point
+ */
+export interface PerpendicularFootInfo {
+    point: Point;
+    shapeId: string;
+    edgeIndex: number;
+}
+
+/**
+ * Find the closest perpendicular foot from a point to any shape edge.
+ * Used for snapping segment endpoints to perpendicular positions.
+ * 
+ * @param point The current mouse/drawing position
+ * @param shapes All shapes to check
+ * @param excludeShapeId Shape ID to exclude (the shape being drawn)
+ * @param maxDistance Maximum distance to consider for snapping
+ * @returns The closest perpendicular foot point, or null if none within range
+ */
+export function findClosestPerpendicularFoot(
+    point: Point,
+    shapes: Shape[],
+    excludeShapeId?: string | null,
+    maxDistance: number = 20
+): Point | null {
+    const info = findClosestPerpendicularFootInfo(point, shapes, excludeShapeId, maxDistance);
+    return info ? info.point : null;
+}
+
+/**
+ * Find the closest perpendicular foot with full info (shape, edge index).
+ * Used for creating perpendicular attachments.
+ */
+export function findClosestPerpendicularFootInfo(
+    point: Point,
+    shapes: Shape[],
+    excludeShapeId?: string | null,
+    maxDistance: number = 20
+): PerpendicularFootInfo | null {
+    let closest: PerpendicularFootInfo | null = null;
+    let minDist = maxDistance;
+    
+    shapes.forEach(shape => {
+        if (excludeShapeId && shape.id === excludeShapeId) return;
+        
+        const edges = getShapeEdges(shape);
+        edges.forEach(([p1, p2], edgeIndex) => {
+            const foot = getPerpendicularFoot(point, p1, p2, true);  // strict mode for initial snap
+            if (foot) {
+                const dist = distance(point, foot);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = {
+                        point: foot,
+                        shapeId: shape.id,
+                        edgeIndex
+                    };
+                }
+            }
+        });
+    });
+    
+    return closest;
 }
 
 export function getShapeMidpoints(shape: Shape): Point[] {

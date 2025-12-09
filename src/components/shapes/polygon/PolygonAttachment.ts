@@ -1,6 +1,6 @@
 import type { Shape, AttachedPoint, SegmentAttachment } from '../../../store/useStore';
 import type { Point } from '../../../utils/geometry';
-import { getShapeVertices, getShapeMidpoints } from '../../../utils/geometry';
+import { getShapeVertices, getShapeMidpoints, getShapeEdges, getPerpendicularFoot } from '../../../utils/geometry';
 
 /**
  * Calculate the absolute position of an attachment point on a polygon.
@@ -8,8 +8,9 @@ import { getShapeVertices, getShapeMidpoints } from '../../../utils/geometry';
  */
 export function getAttachmentPosition(
     shape: Shape,
-    attachType: 'vertex' | 'midpoint',
-    index: number
+    attachType: 'vertex' | 'midpoint' | 'perpendicular',
+    index: number,
+    referencePoint?: Point  // For perpendicular, the point to project from
 ): Point | null {
     if (shape.type !== 'polygon') return null;
     
@@ -22,6 +23,20 @@ export function getAttachmentPosition(
         const midpoints = getShapeMidpoints(shape);
         if (index < midpoints.length) {
             return midpoints[index];
+        }
+    } else if (attachType === 'perpendicular' && referencePoint) {
+        // For perpendicular, index is the edge index
+        const edges = getShapeEdges(shape);
+        if (index < edges.length) {
+            const [p1, p2] = edges[index];
+            const foot = getPerpendicularFoot(referencePoint, p1, p2);
+            if (foot) {
+                return foot;
+            }
+            // If perpendicular foot falls outside the edge, snap to nearest endpoint
+            const d1 = Math.hypot(referencePoint.x - p1.x, referencePoint.y - p1.y);
+            const d2 = Math.hypot(referencePoint.x - p2.x, referencePoint.y - p2.y);
+            return d1 < d2 ? p1 : p2;
         }
     }
     
@@ -94,6 +109,7 @@ export function getSegmentAttachmentsToPolygon(
  * 
  * If a segment has only one endpoint attached, the entire segment translates.
  * If both endpoints are attached, each endpoint moves independently.
+ * For perpendicular attachments, the attached point maintains perpendicular relationship to the edge.
  */
 export function updateAttachedSegments(
     polygon: Shape,
@@ -109,7 +125,18 @@ export function updateAttachedSegments(
         const segment = allShapes.find(s => s.id === attachment.segmentId);
         if (!segment || segment.type !== 'segment' || !segment.points) continue;
         
-        const targetPos = getAttachmentPosition(polygon, attachment.attachType, attachment.targetIndex);
+        // For perpendicular attachments, we need the other endpoint as reference
+        let referencePoint: Point | undefined;
+        if (attachment.attachType === 'perpendicular') {
+            // Get the other (free) endpoint's absolute position
+            const otherEndpoint = attachment.endpoint === 0 ? 1 : 0;
+            referencePoint = {
+                x: segment.x + segment.points[otherEndpoint * 2],
+                y: segment.y + segment.points[otherEndpoint * 2 + 1]
+            };
+        }
+        
+        const targetPos = getAttachmentPosition(polygon, attachment.attachType, attachment.targetIndex, referencePoint);
         if (!targetPos) continue;
         
         // Check how many attachments this segment has in total
@@ -128,7 +155,27 @@ export function updateAttachedSegments(
         const currentUpdate = updates[segment.id];
         const points = currentUpdate.points as number[];
         
-        if (hasOnlyOneAttachment) {
+        if (attachment.attachType === 'perpendicular') {
+            // For perpendicular attachments, always update the endpoint position to the perpendicular foot
+            if (attachment.endpoint === 0) {
+                // Update start point - move origin
+                const endAbsX = segment.x + segment.points[2];
+                const endAbsY = segment.y + segment.points[3];
+                
+                currentUpdate.x = targetPos.x;
+                currentUpdate.y = targetPos.y;
+                points[2] = endAbsX - targetPos.x;
+                points[3] = endAbsY - targetPos.y;
+                points[0] = 0;
+                points[1] = 0;
+            } else {
+                // Update end point
+                const startX = currentUpdate.x !== undefined ? currentUpdate.x : segment.x;
+                const startY = currentUpdate.y !== undefined ? currentUpdate.y : segment.y;
+                points[2] = targetPos.x - startX;
+                points[3] = targetPos.y - startY;
+            }
+        } else if (hasOnlyOneAttachment) {
             // Only one attachment - translate the entire segment
             // Calculate delta from current attached point position to target position
             const currentAttachedX = segment.x + segment.points[attachment.endpoint * 2];
