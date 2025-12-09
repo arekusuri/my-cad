@@ -5,6 +5,7 @@ import { useStore } from '../../store/useStore';
 import Konva from 'konva';
 import { commonDragBoundFunc, limitResizeBoundBoxFunc } from './CommonShape_ops';
 import { getPolygonTransformAttrs, calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from './PolygonShape_ops';
+import { setCursor } from './cursor';
 
 interface PolygonShapeProps {
   shape: Shape;
@@ -81,14 +82,22 @@ export const PolygonShape: React.FC<PolygonShapeProps> = ({
             draggable={isSelected && tool === 'select'}
             onClick={handleClick}
             onTap={handleClick}
+            onMouseEnter={(e) => {
+              if (isSelected && tool === 'select') setCursor('grab', e);
+            }}
+            onMouseLeave={(e) => {
+              if (!isDraggingShape) setCursor('', e);
+            }}
             onDragStart={(e) => {
               dragStartPos.current = { x: e.target.x(), y: e.target.y() };
               setIsDraggingShape(true);
+              setCursor('grabbing', e);
             }}
             dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
             onDragEnd={(e) => {
               dragStartPos.current = null;
               setIsDraggingShape(false);
+              setCursor('grab', e);
               onChange({
                 x: e.target.x(),
                 y: e.target.y(),
@@ -157,14 +166,22 @@ export const PolygonShape: React.FC<PolygonShapeProps> = ({
         draggable={isSelected && tool === 'select'}
         onClick={handleClick}
         onTap={handleClick}
+        onMouseEnter={(e) => {
+          if (isSelected && tool === 'select') setCursor('grab', e);
+        }}
+        onMouseLeave={(e) => {
+          if (!isDraggingShape) setCursor('', e);
+        }}
         onDragStart={(e) => {
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
           setIsDraggingShape(true);
+          setCursor('grabbing', e);
         }}
         dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
         onDragEnd={(e) => {
           dragStartPos.current = null;
           setIsDraggingShape(false);
+          setCursor('grab', e);
           onChange({
             x: e.target.x(),
             y: e.target.y(),

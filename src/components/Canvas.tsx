@@ -36,6 +36,20 @@ export const Canvas: React.FC = () => {
     }
   }, [tool]);
   
+  // Handle Escape key to cancel triangle drawing
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && tool === 'triangle' && triangleDrawState) {
+        setTriangleDrawState(null);
+        setTrianglePreviewPoint(null);
+        useStore.getState().setTool('select');
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [tool, triangleDrawState]);
+  
   // Calculate selected shape center for ortho axes
   const getSelectedShapeCenter = (): { x: number; y: number } | null => {
     if (selectedIds.length === 0) return null;
@@ -690,7 +704,7 @@ export const Canvas: React.FC = () => {
       onMouseUp={handleMouseUp}
       onContextMenu={handleContextMenu}
       onDblClick={handleDblClick}
-      className={`bg-gray-50 ${tool === 'trim' || tool === 'eraser' ? 'cursor-cell' : 'cursor-crosshair'}`}
+      className={`bg-gray-50 ${tool === 'select' ? 'cursor-pointer' : tool === 'trim' || tool === 'eraser' ? 'cursor-cell' : 'cursor-crosshair'}`}
     >
       <Layer>
         {renderGrid()}
