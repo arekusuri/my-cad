@@ -1,34 +1,94 @@
-import type { Shape } from '../../store/useStore';
-import { handleVertexDrag, type SnapPoint } from '../modes/AutoSnappingMode';
+import type { Tool, ToolEvent, ToolContext, ToolResult } from './ToolInterface';
+import { NOT_HANDLED, HANDLED } from './ToolInterface';
+import { handleVertexDrag } from '../modes/AutoSnappingMode';
 import { constrainLineToOrtho, constrainToAxis } from '../modes/OrthoMode';
+import { findClosestSnapPoint } from '../modes/AutoSnappingMode';
 
-interface HandleDraggingVertexParams {
-  draggingVertex: { shapeId: string; index: number; startX: number; startY: number };
-  tool: string;
-  e: { evt: { altKey: boolean; shiftKey: boolean } };
-  pos: { x: number; y: number };
-  shapes: Shape[];
-  updateShape: (id: string, attrs: Partial<Shape>) => void;
-  snapToGrid: (val: number) => number;
-  setHoveredSnapPoint: (point: SnapPoint | null) => void;
-}
+/**
+ * Select tool - handles selection, vertex dragging, and selection box
+ */
+export class SelectToolClass implements Tool {
+  readonly toolTypes = ['select'] as const;
+  readonly cursorClass = 'cursor-pointer';
 
-export const handleDraggingVertex = ({
-  draggingVertex,
-  tool,
-  e,
-  pos,
-  shapes,
-  updateShape,
-  snapToGrid,
-  setHoveredSnapPoint,
-}: HandleDraggingVertexParams) => {
-  if (draggingVertex && tool === 'select') {
+  handleMouseDown(event: ToolEvent, context: ToolContext): ToolResult {
+    if (context.tool !== 'select') return NOT_HANDLED;
+
+    const { pos, altKey } = event;
+    const { hoveredSnapPoint, shapes, startDrag, selectShape, startSelectionBox } = context;
+
+    // Check if we are clicking a highlighted vertex to drag (but not in Alt mode - Alt is for snapping only)
+    if (hoveredSnapPoint && hoveredSnapPoint.type === 'vertex' && !altKey) {
+      startDrag(hoveredSnapPoint, shapes);
+      return HANDLED;
+    }
+
+    // If clicking on stage (empty area), start selection box
+    const clickedOnEmpty = event.target === event.getStage();
+    if (clickedOnEmpty) {
+      selectShape(null);
+      startSelectionBox(pos.x, pos.y);
+      return HANDLED;
+    }
+
+    return NOT_HANDLED;
+  }
+
+  handleMouseMove(event: ToolEvent, context: ToolContext): ToolResult {
+    if (context.tool !== 'select') return NOT_HANDLED;
+
+    const { pos } = event;
+    const { 
+      draggingVertex, 
+      shapes,
+      setHoveredSnapPoint,
+      updateSelectionBox 
+    } = context;
+
+    // 1. Vertex Dragging
+    if (draggingVertex) {
+      this.handleVertexDragging(event, context);
+      return HANDLED;
+    }
+
+    // 2. Selection box update
+    if (updateSelectionBox(pos.x, pos.y)) {
+      return HANDLED;
+    }
+
+    // 3. Snap point highlighting (only with Alt key in select mode)
+    if (event.altKey) {
+      const closest = findClosestSnapPoint(pos, shapes);
+      setHoveredSnapPoint(closest);
+    } else {
+      setHoveredSnapPoint(null);
+    }
+
+    return NOT_HANDLED;
+  }
+
+  handleMouseUp(_event: ToolEvent, context: ToolContext): ToolResult {
+    if (context.tool !== 'select') return NOT_HANDLED;
+
+    const { endDrag, completeSelectionBox } = context;
+    
+    endDrag();
+    completeSelectionBox();
+    
+    return NOT_HANDLED; // Let other handlers also run
+  }
+
+  private handleVertexDragging(event: ToolEvent, context: ToolContext): void {
+    const { pos, shiftKey, altKey } = event;
+    const { draggingVertex, shapes, updateShape, snapToGrid, setHoveredSnapPoint } = context;
+    
+    if (!draggingVertex) return;
+
     const mouseX = pos.x;
     const mouseY = pos.y;
 
-    const isSnappingEnabled = e.evt.altKey;
-    const isOrthoEnabled = e.evt.shiftKey;
+    const isSnappingEnabled = altKey;
+    const isOrthoEnabled = shiftKey;
 
     let newX = mouseX;
     let newY = mouseY;
@@ -78,8 +138,8 @@ export const handleDraggingVertex = ({
       y: highlightY,
       type: 'vertex',
     });
-    return true; // Indicates handled
   }
-  return false;
-};
+}
 
+// Singleton instance
+export const selectTool = new SelectToolClass();

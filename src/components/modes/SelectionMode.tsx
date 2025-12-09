@@ -38,16 +38,26 @@ export function useSelectionMode({ shapes, selectedIds }: UseSelectionModeProps)
 
   /**
    * Update selection box as mouse moves (world coordinates)
+   * Returns true if selection was active and updated, false otherwise
    */
-  const updateSelectionBox = useCallback((worldX: number, worldY: number) => {
-    setSelectionBox(prev => prev ? ({ ...prev, currentX: worldX, currentY: worldY }) : null);
+  const updateSelectionBox = useCallback((worldX: number, worldY: number): boolean => {
+    let handled = false;
+    setSelectionBox(prev => {
+      if (prev) {
+        handled = true;
+        return { ...prev, currentX: worldX, currentY: worldY };
+      }
+      return null;
+    });
+    return handled;
   }, []);
 
   /**
    * Complete selection - find shapes/vertices within the selection box
+   * Returns true if selection was active and completed, false otherwise
    */
-  const completeSelectionBox = useCallback(() => {
-    if (!selectionBox) return;
+  const completeSelectionBox = useCallback((): boolean => {
+    if (!selectionBox) return false;
 
     const { startX, startY, currentX, currentY } = selectionBox;
     const isWindowSelection = currentY > startY; // Down -> Window (Blue)
@@ -119,6 +129,7 @@ export function useSelectionMode({ shapes, selectedIds }: UseSelectionModeProps)
     }
     
     setSelectionBox(null);
+    return true;
   }, [selectionBox, shapes, selectedIds, selectShape, selectVertices]);
 
   /**

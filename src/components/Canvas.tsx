@@ -6,7 +6,7 @@ import Konva from 'konva';
 import { getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
 import { getShapeSpecialSnapPoints } from '../utils/shapeSnapPoints';
 import { registerAllShapeSnapPoints } from '../utils/shapeSnapPointsSetup';
-import { SnapPointHighlight, findClosestSnapPoint, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
+import { SnapPointHighlight, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
 import { OrthoAxesOverlay } from './modes/OrthoMode.tsx';
 import { useZoomMode, ZoomBoxOverlay } from './modes/ZoomMode';
 import { useSelectionMode, SelectionBoxOverlay } from './modes/SelectionMode';
@@ -16,8 +16,8 @@ import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegme
 import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './shapes/polygon';
 import { Grid } from './Grid';
 import { handleTrim } from './tools/Trim';
-import { handleDraggingVertex } from './tools/SelectTool';
-import { handlePointTool } from './tools/PointTool';
+import { toolManager } from './tools/ToolManager';
+import type { ToolContext, ToolEvent } from './tools/ToolInterface';
 
 // Register all shape special snap point providers
 registerAllShapeSnapPoints();
@@ -33,8 +33,7 @@ export const Canvas: React.FC = () => {
   // Zoom mode (encapsulated in ZoomMode)
   const { 
     viewport, 
-    zoomBox, 
-    isZoomToolActive,
+    zoomBox,
     screenToWorld, 
     startZoomBox, 
     updateZoomBox, 
@@ -44,7 +43,6 @@ export const Canvas: React.FC = () => {
   // Selection mode (encapsulated in SelectionMode)
   const {
     selectionBox,
-    isSelecting,
     startSelectionBox,
     updateSelectionBox,
     completeSelectionBox,
@@ -219,53 +217,43 @@ export const Canvas: React.FC = () => {
     // Convert to world coordinates for most operations
     const pos = screenToWorld(screenPos.x, screenPos.y);
 
-    // Handle zoom tool - start zoom selection box (use screen coords)
-    if (isZoomToolActive) {
-      startZoomBox(screenPos.x, screenPos.y);
-      return;
-    }
-
-    // Handle point tool - add attached point on snap points
-    if (tool === 'point') {
-        handlePointTool({
-            pos,
-            shapes,
-            attachedPoints,
-            addAttachedPoint
-        });
-        return;
-    }
-
-    // Check if we are clicking a highlighted vertex to drag (but not in Alt mode - Alt is for snapping only)
-    if (tool === 'select' && hoveredSnapPoint && hoveredSnapPoint.type === 'vertex' && !e.evt.altKey) {
-        startDrag(hoveredSnapPoint, shapes);
-        return;
-    }
-
-    // If clicking on stage (empty area)
-    const clickedOnEmpty = e.target === e.target.getStage();
-    
-    if (clickedOnEmpty) {
-      selectShape(null);
-      
-      if (tool === 'select') {
-        startSelectionBox(pos.x, pos.y);
-      }
-    }
-
-    // Delegate to drawing tools (all shapes including triangle)
-    const drawingEvent = {
-      x: pos.x,
-      y: pos.y,
+    // Create tool context and event
+    const toolContext: ToolContext = {
+      tool,
+      shapes,
+      selectedIds,
+      attachedPoints,
+      hoveredSnapPoint,
+      draggingVertex,
+      updateShape,
+      addShape,
+      deleteShape,
+      selectShape,
+      addAttachedPoint,
+      snapToGrid,
+      setHoveredSnapPoint,
+      startSelectionBox,
+      updateSelectionBox,
+      completeSelectionBox,
+      startDrag,
+      endDrag,
+      startZoomBox,
+      updateZoomBox,
+      completeZoomBox,
+      drawingTools
+    };
+    const toolEvent: ToolEvent = {
+      pos,
+      screenPos,
       shiftKey: e.evt.shiftKey,
       altKey: e.evt.altKey,
       button: e.evt.button,
+      target: e.target,
+      getStage: () => e.target.getStage()
     };
-    
-    const result = drawingTools.handleMouseDown(drawingEvent);
-    if (result.handled) {
-      return;
-    }
+
+    // Dispatch to tool manager - it handles everything
+    toolManager.handleMouseDown(toolEvent, toolContext);
   };
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -276,87 +264,89 @@ export const Canvas: React.FC = () => {
     // Convert to world coordinates
     const pos = screenToWorld(screenPos.x, screenPos.y);
 
-    // Handle zoom box dragging (use screen coords)
-    if (zoomBox) {
-      updateZoomBox(screenPos.x, screenPos.y);
-      return;
-    }
-
-    // 1. Vertex Dragging (Select Mode)
-    if (draggingVertex && tool === 'select') {
-        const handled = handleDraggingVertex({
-            draggingVertex,
-            tool,
-            e,
-            pos,
-            shapes,
-            updateShape,
-            snapToGrid,
-            setHoveredSnapPoint
-        });
-        
-        if (handled) return;
-    }
-
-    if (isSelecting) {
-        updateSelectionBox(pos.x, pos.y);
-        return;
-    }
-
-    // Check for Alt key for highlighting and snapping
-    const isSnappingEnabled = e.evt.altKey;
-
-    // Snap Point Highlight - show during select mode or while drawing with Alt key
-    // Also always show during point tool mode
-    if (isSnappingEnabled || tool === 'point') {
-        const closest = findClosestSnapPoint(pos, shapes);
-        setHoveredSnapPoint(closest);
-    } else {
-        setHoveredSnapPoint(null);
-    }
-
-    // Delegate to drawing tools (all shapes including triangle)
-    const drawingEvent = {
-      x: pos.x,
-      y: pos.y,
+    // Create tool context and event
+    const toolContext: ToolContext = {
+      tool,
+      shapes,
+      selectedIds,
+      attachedPoints,
+      hoveredSnapPoint,
+      draggingVertex,
+      updateShape,
+      addShape,
+      deleteShape,
+      selectShape,
+      addAttachedPoint,
+      snapToGrid,
+      setHoveredSnapPoint,
+      startSelectionBox,
+      updateSelectionBox,
+      completeSelectionBox,
+      startDrag,
+      endDrag,
+      startZoomBox,
+      updateZoomBox,
+      completeZoomBox,
+      drawingTools
+    };
+    const toolEvent: ToolEvent = {
+      pos,
+      screenPos,
       shiftKey: e.evt.shiftKey,
       altKey: e.evt.altKey,
       button: e.evt.button,
+      target: e.target,
+      getStage: () => e.target.getStage()
     };
-    
-    const result = drawingTools.handleMouseMove(drawingEvent);
-    if (result.handled) {
-      return;
-    }
+
+    // Dispatch to tool manager - it handles everything
+    toolManager.handleMouseMove(toolEvent, toolContext);
   };
 
   const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    endDrag(); // Stop dragging vertex (clears saved shape)
-
-    // Handle zoom box completion
-    if (zoomBox) {
-      completeZoomBox();
-      return;
-    }
-
-    // Delegate to drawing tools
+    // Get position
     const stage = e.target.getStage();
     const screenPos = stage?.getPointerPosition();
-    if (screenPos) {
-      const pos = screenToWorld(screenPos.x, screenPos.y);
-      const drawingEvent = {
-        x: pos.x,
-        y: pos.y,
-        shiftKey: e.evt.shiftKey,
-        altKey: e.evt.altKey,
-        button: e.evt.button,
-      };
-      drawingTools.handleMouseUp(drawingEvent);
-    }
+    if (!screenPos) return;
+    const pos = screenToWorld(screenPos.x, screenPos.y);
 
-    if (isSelecting) {
-        completeSelectionBox();
-    }
+    // Create tool context and event
+    const toolContext: ToolContext = {
+      tool,
+      shapes,
+      selectedIds,
+      attachedPoints,
+      hoveredSnapPoint,
+      draggingVertex,
+      updateShape,
+      addShape,
+      deleteShape,
+      selectShape,
+      addAttachedPoint,
+      snapToGrid,
+      setHoveredSnapPoint,
+      startSelectionBox,
+      updateSelectionBox,
+      completeSelectionBox,
+      startDrag,
+      endDrag,
+      startZoomBox,
+      updateZoomBox,
+      completeZoomBox,
+      drawingTools
+    };
+    const toolEvent: ToolEvent = {
+      pos,
+      screenPos,
+      shiftKey: e.evt.shiftKey,
+      altKey: e.evt.altKey,
+      button: e.evt.button,
+      target: e.target,
+      getStage: () => e.target.getStage()
+    };
+
+    // Dispatch to tool manager - it handles everything
+    toolManager.handleMouseUp(toolEvent, toolContext);
   };
 
   const handleContextMenu = (e: Konva.KonvaEventObject<PointerEvent>) => {
@@ -398,14 +388,8 @@ export const Canvas: React.FC = () => {
   
   const attachedPointsToRender = getAttachedPointsToRender();
 
-  // Get cursor style based on tool
-  const getCursorClass = () => {
-    if (tool === 'select') return 'cursor-pointer';
-    if (tool === 'trim' || tool === 'eraser') return 'cursor-cell';
-    if (tool === 'point') return 'cursor-pointer';
-    if (tool === 'zoom') return 'cursor-zoom-in';
-    return 'cursor-crosshair';
-  };
+  // Get cursor style from tool manager
+  const cursorClass = toolManager.getCursor(tool);
 
   return (
     <Stage
@@ -416,7 +400,7 @@ export const Canvas: React.FC = () => {
       onMouseUp={handleMouseUp}
       onContextMenu={handleContextMenu}
       onDblClick={handleDblClick}
-      className={`bg-gray-50 ${getCursorClass()}`}
+      className={`bg-gray-50 ${cursorClass}`}
     >
       {/* Main layer with viewport transformation */}
       <Layer

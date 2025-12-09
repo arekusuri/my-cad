@@ -59,9 +59,18 @@ export function useZoomMode({ onZoomComplete }: UseZoomModeProps = {}) {
 
   /**
    * Update zoom selection box as mouse moves
+   * Returns true if zoom box was active and updated, false otherwise
    */
-  const updateZoomBox = useCallback((screenX: number, screenY: number) => {
-    setZoomBox(prev => prev ? ({ ...prev, currentX: screenX, currentY: screenY }) : null);
+  const updateZoomBox = useCallback((screenX: number, screenY: number): boolean => {
+    let handled = false;
+    setZoomBox(prev => {
+      if (prev) {
+        handled = true;
+        return { ...prev, currentX: screenX, currentY: screenY };
+      }
+      return null;
+    });
+    return handled;
   }, []);
 
   /**
