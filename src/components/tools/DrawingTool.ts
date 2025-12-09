@@ -1,5 +1,14 @@
-import { useStore, type Shape } from '../../store/useStore';
+import { useStore, type Shape, type SegmentAttachment } from '../../store/useStore';
 import type { Point } from '../../utils/geometry';
+
+/** Full snap point info including the shape and point type */
+export interface SnapPointInfo {
+    x: number;
+    y: number;
+    shapeId: string;
+    type: 'vertex' | 'midpoint';
+    index: number;
+}
 
 /**
  * Context passed to drawing tools with canvas utilities
@@ -7,8 +16,10 @@ import type { Point } from '../../utils/geometry';
 export interface DrawingContext {
     /** Snap value to grid */
     snapToGrid: (val: number) => number;
-    /** Find snap point on other shapes (vertices/midpoints) */
+    /** Find snap point on other shapes (vertices/midpoints) - returns just coordinates */
     findSnapPoint: (x: number, y: number, excludeShapeId?: string | null) => Point | null;
+    /** Find snap point with full info (shape id, type, index) */
+    findSnapPointInfo: (x: number, y: number, excludeShapeId?: string | null) => SnapPointInfo | null;
     /** Add shape to store */
     addShape: (shape: Omit<Shape, 'id'>) => void;
     /** Update existing shape */
@@ -17,6 +28,8 @@ export interface DrawingContext {
     deleteShape: (id: string) => void;
     /** Get current shapes */
     getShapes: () => Shape[];
+    /** Add segment attachment */
+    addSegmentAttachment: (attachment: Omit<SegmentAttachment, 'id'>) => void;
 }
 
 /**
@@ -191,16 +204,19 @@ export abstract class DragDrawingTool implements DrawingTool {
  */
 export function createDrawingContext(
     snapToGrid: (val: number) => number,
-    findSnapPoint: (x: number, y: number, excludeShapeId?: string | null) => Point | null
+    findSnapPoint: (x: number, y: number, excludeShapeId?: string | null) => Point | null,
+    findSnapPointInfo?: (x: number, y: number, excludeShapeId?: string | null) => SnapPointInfo | null
 ): DrawingContext {
     const store = useStore.getState();
     return {
         snapToGrid,
         findSnapPoint,
+        findSnapPointInfo: findSnapPointInfo || (() => null),
         addShape: store.addShape,
         updateShape: store.updateShape,
         deleteShape: store.deleteShape,
         getShapes: () => useStore.getState().shapes,
+        addSegmentAttachment: store.addSegmentAttachment,
     };
 }
 

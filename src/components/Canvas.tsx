@@ -7,13 +7,14 @@ import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIn
 import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
 import { constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
 import { useDrawingTools } from './tools/useDrawingTools';
-import { TrianglePreview, getTriangleAttachedPoints, hasTriangleAttachedPointAt } from './shapes/triangle';
-import { getPolygonAttachedPoints, hasPolygonAttachedPointAt } from './shapes/polygon';
+import type { SnapPointInfo } from './tools/DrawingTool';
+import { TrianglePreview, getTriangleAttachedPoints, hasTriangleAttachedPointAt, updateTriangleAttachedSegments } from './shapes/triangle';
+import { getPolygonAttachedPoints, hasPolygonAttachedPointAt, updatePolygonAttachedSegments } from './shapes/polygon';
 
 const GRID_SIZE = 20;
 
 export const Canvas: React.FC = () => {
-  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, attachedPoints, addAttachedPoint } = useStore();
+  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, attachedPoints, addAttachedPoint, segmentAttachments } = useStore();
   const isShiftPressed = useStore((state) => state.isShiftPressed);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [hoveredSnapPoint, setHoveredSnapPoint] = useState<SnapPoint | null>(null);
@@ -76,8 +77,39 @@ export const Canvas: React.FC = () => {
       return closestPoint;
   }, [shapes]);
 
+  // Find snap point with full info (for creating attachments)
+  const findSnapPointInfo = useCallback((x: number, y: number, excludeShapeId?: string | null): SnapPointInfo | null => {
+      let closest: SnapPointInfo | null = null;
+      let minDist = 10; // Snap threshold
+
+      shapes.forEach(shape => {
+          if (excludeShapeId && shape.id === excludeShapeId) return;
+          
+          const vertices = getShapeVertices(shape);
+          vertices.forEach((v, i) => {
+              const d = Math.sqrt(Math.pow(v.x - x, 2) + Math.pow(v.y - y, 2));
+              if (d < minDist) {
+                  minDist = d;
+                  closest = { x: v.x, y: v.y, shapeId: shape.id, type: 'vertex', index: i };
+              }
+          });
+
+          // Check midpoints
+          const midpoints = getShapeMidpoints(shape);
+          midpoints.forEach((m, i) => {
+              const d = Math.sqrt(Math.pow(m.x - x, 2) + Math.pow(m.y - y, 2));
+              if (d < minDist) {
+                  minDist = d;
+                  closest = { x: m.x, y: m.y, shapeId: shape.id, type: 'midpoint', index: i };
+              }
+          });
+      });
+
+      return closest;
+  }, [shapes]);
+
   // Drawing tools (encapsulated - handles all shapes: circle, rect, segment, polygon, triangle)
-  const drawingTools = useDrawingTools({ snapToGrid, findSnapPoint });
+  const drawingTools = useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo });
 
   // Handle Escape key to cancel drawing
   useEffect(() => {
@@ -91,6 +123,56 @@ export const Canvas: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [drawingTools]);
+
+  // Apply segment attachments when shapes move
+  // Uses attachment logic from TriangleAttachment and PolygonAttachment
+  const prevShapesRef = React.useRef<Record<string, { x: number; y: number; rotation: number }>>({});
+  
+  useEffect(() => {
+    if (segmentAttachments.length === 0) return;
+    
+    // Check if any target shapes have moved
+    const targetShapeIds = new Set(segmentAttachments.map(a => a.targetShapeId));
+    let needsUpdate = false;
+    
+    for (const shapeId of targetShapeIds) {
+      const shape = shapes.find(s => s.id === shapeId);
+      if (!shape) continue;
+      
+      const prev = prevShapesRef.current[shapeId];
+      if (!prev || prev.x !== shape.x || prev.y !== shape.y || prev.rotation !== shape.rotation) {
+        needsUpdate = true;
+        break;
+      }
+    }
+    
+    if (needsUpdate) {
+      // Collect all segment updates from triangles and polygons
+      const allUpdates: Record<string, Partial<Shape>> = {};
+      
+      shapes.forEach(shape => {
+        let updates: Record<string, Partial<Shape>> = {};
+        if (shape.type === 'triangle') {
+          updates = updateTriangleAttachedSegments(shape, shapes, segmentAttachments);
+        } else if (shape.type === 'polygon') {
+          updates = updatePolygonAttachedSegments(shape, shapes, segmentAttachments);
+        }
+        Object.assign(allUpdates, updates);
+      });
+      
+      // Apply updates to segments
+      Object.entries(allUpdates).forEach(([segmentId, attrs]) => {
+        updateShape(segmentId, attrs);
+      });
+    }
+    
+    // Update prev shapes ref
+    const newPrev: Record<string, { x: number; y: number; rotation: number }> = {};
+    shapes.forEach(s => {
+      newPrev[s.id] = { x: s.x, y: s.y, rotation: s.rotation };
+    });
+    prevShapesRef.current = newPrev;
+  }, [shapes, segmentAttachments, updateShape]);
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Only allow left click for drawing/selecting

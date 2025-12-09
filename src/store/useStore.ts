@@ -12,6 +12,21 @@ export interface AttachedPoint {
   index: number;
 }
 
+/** Tracks segment endpoint attachment to another shape's vertex/midpoint */
+export interface SegmentAttachment {
+  id: string;
+  /** The segment being attached */
+  segmentId: string;
+  /** Which endpoint: 0 = start, 1 = end */
+  endpoint: 0 | 1;
+  /** The shape this endpoint is attached to */
+  targetShapeId: string;
+  /** Type of attachment point */
+  attachType: 'vertex' | 'midpoint';
+  /** Index of the vertex or midpoint on target shape */
+  targetIndex: number;
+}
+
 export interface Shape {
   id: string;
   type: ShapeType;
@@ -31,6 +46,7 @@ export type ToolType = 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | '
 interface StoreState {
   shapes: Shape[];
   attachedPoints: AttachedPoint[];
+  segmentAttachments: SegmentAttachment[];
   selectedIds: string[];
   selectedVertexIndices: Record<string, number[]>; // shapeId -> array of vertex indices
   vertexEditMode: boolean;
@@ -47,13 +63,17 @@ interface StoreState {
   deleteShape: (id: string) => void;
   addAttachedPoint: (point: Omit<AttachedPoint, 'id'>) => void;
   removeAttachedPoint: (id: string) => void;
+  addSegmentAttachment: (attachment: Omit<SegmentAttachment, 'id'>) => void;
+  removeSegmentAttachment: (id: string) => void;
+  getSegmentAttachments: (segmentId: string) => SegmentAttachment[];
   setShiftPressed: (pressed: boolean) => void;
   setAltPressed: (pressed: boolean) => void;
 }
 
-export const useStore = create<StoreState>((set) => ({
+export const useStore = create<StoreState>((set, get) => ({
   shapes: [],
   attachedPoints: [],
+  segmentAttachments: [],
   selectedIds: [],
   selectedVertexIndices: {},
   vertexEditMode: false,
@@ -81,6 +101,10 @@ export const useStore = create<StoreState>((set) => ({
     selectedVertexIndices: { ...state.selectedVertexIndices, [id]: [] },
     // Also remove attached points for this shape
     attachedPoints: state.attachedPoints.filter((p) => p.shapeId !== id),
+    // Remove segment attachments where this shape is the segment or target
+    segmentAttachments: state.segmentAttachments.filter(
+      (a) => a.segmentId !== id && a.targetShapeId !== id
+    ),
   })),
   addAttachedPoint: (point) => set((state) => ({
     attachedPoints: [...state.attachedPoints, { ...point, id: uuidv4() }]
@@ -88,6 +112,15 @@ export const useStore = create<StoreState>((set) => ({
   removeAttachedPoint: (id) => set((state) => ({
     attachedPoints: state.attachedPoints.filter((p) => p.id !== id)
   })),
+  addSegmentAttachment: (attachment) => set((state) => ({
+    segmentAttachments: [...state.segmentAttachments, { ...attachment, id: uuidv4() }]
+  })),
+  removeSegmentAttachment: (id) => set((state) => ({
+    segmentAttachments: state.segmentAttachments.filter((a) => a.id !== id)
+  })),
+  getSegmentAttachments: (segmentId) => {
+    return get().segmentAttachments.filter((a) => a.segmentId === segmentId);
+  },
   setShiftPressed: (pressed) => set({ isShiftPressed: pressed }),
   setAltPressed: (pressed) => set({ isAltPressed: pressed }),
 }));

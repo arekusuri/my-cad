@@ -1,6 +1,32 @@
-import type { Shape, AttachedPoint } from '../../../store/useStore';
+import type { Shape, AttachedPoint, SegmentAttachment } from '../../../store/useStore';
 import type { Point } from '../../../utils/geometry';
 import { getShapeVertices, getShapeMidpoints } from '../../../utils/geometry';
+
+/**
+ * Calculate the absolute position of an attachment point on a triangle.
+ * Works for both AttachedPoints and SegmentAttachment targets.
+ */
+export function getAttachmentPosition(
+    shape: Shape,
+    attachType: 'vertex' | 'midpoint',
+    index: number
+): Point | null {
+    if (shape.type !== 'triangle') return null;
+    
+    if (attachType === 'vertex') {
+        const vertices = getShapeVertices(shape);
+        if (index < vertices.length) {
+            return vertices[index];
+        }
+    } else if (attachType === 'midpoint') {
+        const midpoints = getShapeMidpoints(shape);
+        if (index < midpoints.length) {
+            return midpoints[index];
+        }
+    }
+    
+    return null;
+}
 
 /**
  * Calculate the absolute position of an attached point on a triangle.
@@ -10,21 +36,7 @@ export function getAttachedPointPosition(
     shape: Shape,
     attachedPoint: AttachedPoint
 ): Point | null {
-    if (shape.type !== 'triangle') return null;
-    
-    if (attachedPoint.attachType === 'vertex') {
-        const vertices = getShapeVertices(shape);
-        if (attachedPoint.index < vertices.length) {
-            return vertices[attachedPoint.index];
-        }
-    } else if (attachedPoint.attachType === 'midpoint') {
-        const midpoints = getShapeMidpoints(shape);
-        if (attachedPoint.index < midpoints.length) {
-            return midpoints[attachedPoint.index];
-        }
-    }
-    
-    return null;
+    return getAttachmentPosition(shape, attachedPoint.attachType, attachedPoint.index);
 }
 
 /**
@@ -64,5 +76,72 @@ export function hasAttachedPointAt(
               ap.attachType === attachType && 
               ap.index === index
     );
+}
+
+/**
+ * Get all segment attachments that target this triangle.
+ */
+export function getSegmentAttachmentsToTriangle(
+    triangleId: string,
+    segmentAttachments: SegmentAttachment[]
+): SegmentAttachment[] {
+    return segmentAttachments.filter(a => a.targetShapeId === triangleId);
+}
+
+/**
+ * Update all segments attached to this triangle.
+ * Returns an object mapping segment IDs to their new attributes.
+ */
+export function updateAttachedSegments(
+    triangle: Shape,
+    allShapes: Shape[],
+    segmentAttachments: SegmentAttachment[]
+): Record<string, Partial<Shape>> {
+    if (triangle.type !== 'triangle') return {};
+    
+    const updates: Record<string, Partial<Shape>> = {};
+    const attachments = getSegmentAttachmentsToTriangle(triangle.id, segmentAttachments);
+    
+    for (const attachment of attachments) {
+        const segment = allShapes.find(s => s.id === attachment.segmentId);
+        if (!segment || segment.type !== 'segment' || !segment.points) continue;
+        
+        const targetPos = getAttachmentPosition(triangle, attachment.attachType, attachment.targetIndex);
+        if (!targetPos) continue;
+        
+        // Get or create updates for this segment
+        if (!updates[segment.id]) {
+            updates[segment.id] = { 
+                x: segment.x,
+                y: segment.y,
+                points: [...segment.points] 
+            };
+        }
+        
+        const currentUpdate = updates[segment.id];
+        const points = currentUpdate.points as number[];
+        
+        if (attachment.endpoint === 0) {
+            // Update start point - move the segment origin
+            const endAbsX = segment.x + segment.points[2];
+            const endAbsY = segment.y + segment.points[3];
+            
+            currentUpdate.x = targetPos.x;
+            currentUpdate.y = targetPos.y;
+            // Adjust end point to maintain absolute position
+            points[2] = endAbsX - targetPos.x;
+            points[3] = endAbsY - targetPos.y;
+            points[0] = 0;
+            points[1] = 0;
+        } else {
+            // Update end point
+            const startX = currentUpdate.x !== undefined ? currentUpdate.x : segment.x;
+            const startY = currentUpdate.y !== undefined ? currentUpdate.y : segment.y;
+            points[2] = targetPos.x - startX;
+            points[3] = targetPos.y - startY;
+        }
+    }
+    
+    return updates;
 }
 

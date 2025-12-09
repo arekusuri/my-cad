@@ -1,6 +1,6 @@
 import { useRef, useMemo, useCallback, useSyncExternalStore } from 'react';
 import { useStore } from '../../store/useStore';
-import type { DrawingTool, DrawingContext, DrawingMouseEvent } from './DrawingTool';
+import type { DrawingTool, DrawingContext, DrawingMouseEvent, SnapPointInfo } from './DrawingTool';
 import { CircleDrawing } from '../shapes/circle/CircleDrawing';
 import { RectDrawing } from '../shapes/rect/RectDrawing';
 import { SegmentDrawing } from '../shapes/segment/SegmentDrawing';
@@ -11,6 +11,7 @@ import type { Point } from '../../utils/geometry';
 interface UseDrawingToolsProps {
     snapToGrid: (val: number) => number;
     findSnapPoint: (x: number, y: number, excludeShapeId?: string | null) => Point | null;
+    findSnapPointInfo: (x: number, y: number, excludeShapeId?: string | null) => SnapPointInfo | null;
 }
 
 // Store for triggering React re-renders when tool state changes
@@ -35,11 +36,12 @@ function getSnapshot() {
  * Hook to manage drawing tools based on the current tool selection.
  * Returns handlers that delegate to the appropriate tool.
  */
-export function useDrawingTools({ snapToGrid, findSnapPoint }: UseDrawingToolsProps) {
+export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }: UseDrawingToolsProps) {
     const tool = useStore((state) => state.tool);
     const addShape = useStore((state) => state.addShape);
     const updateShape = useStore((state) => state.updateShape);
     const deleteShape = useStore((state) => state.deleteShape);
+    const addSegmentAttachment = useStore((state) => state.addSegmentAttachment);
     
     // Create tool instances (persistent across renders)
     const toolsRef = useRef<Record<string, DrawingTool>>({
@@ -63,12 +65,14 @@ export function useDrawingTools({ snapToGrid, findSnapPoint }: UseDrawingToolsPr
         return {
             snapToGrid,
             findSnapPoint,
+            findSnapPointInfo,
             addShape,
             updateShape,
             deleteShape,
             getShapes: () => useStore.getState().shapes,
+            addSegmentAttachment,
         };
-    }, [snapToGrid, findSnapPoint, addShape, updateShape, deleteShape]);
+    }, [snapToGrid, findSnapPoint, findSnapPointInfo, addShape, updateShape, deleteShape, addSegmentAttachment]);
     
     // Handle mouse down
     const handleMouseDown = useCallback((e: DrawingMouseEvent) => {

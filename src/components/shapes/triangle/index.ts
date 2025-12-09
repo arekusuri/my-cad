@@ -3,8 +3,11 @@ export { getTriangleTransformAttrs } from './TriangleShape_ops';
 export { TriangleDrawing, type TriangleDrawState } from './TriangleDrawing';
 export { TrianglePreview } from './TrianglePreview';
 export { 
+    getAttachmentPosition as getTriangleAttachmentPosition,
     getAttachedPointPosition as getTriangleAttachedPointPosition, 
     getTriangleAttachedPoints, 
-    hasAttachedPointAt as hasTriangleAttachedPointAt 
+    hasAttachedPointAt as hasTriangleAttachedPointAt,
+    getSegmentAttachmentsToTriangle,
+    updateAttachedSegments as updateTriangleAttachedSegments,
 } from './TriangleAttachment';
 
