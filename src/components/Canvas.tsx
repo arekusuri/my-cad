@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Stage, Layer, Line, Circle as KonvaCircle } from 'react-konva';
+import { Stage, Layer, Circle as KonvaCircle } from 'react-konva';
 import { useStore, type Shape, type AttachedPoint } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
-import { getLineIntersection, distance, getRectLines, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
-import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
-import { constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
-import { OrthoAxes } from './modes/OrthoMode.tsx';
+import { getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
+import { SnapPointHighlight, findClosestSnapPoint, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
+import { OrthoAxesOverlay } from './modes/OrthoMode.tsx';
 import { useZoomMode, ZoomBoxOverlay } from './modes/ZoomMode';
 import { useSelectionMode, SelectionBoxOverlay } from './modes/SelectionMode';
 import { useDrawingTools } from './tools/useDrawingTools';
@@ -14,6 +13,9 @@ import type { SnapPointInfo } from './tools/DrawingTool';
 import { TrianglePreview, getTriangleAttachedPoints, hasTriangleAttachedPointAt, updateTriangleAttachedSegments } from './shapes/triangle';
 import { getCircumcenterPoint } from './shapes/triangle/TriangleCircumcenter';
 import { getPolygonAttachedPoints, hasPolygonAttachedPointAt, updatePolygonAttachedSegments } from './shapes/polygon';
+import { Grid } from './Grid';
+import { handleTrim } from './tools/Trim';
+import { handleDraggingVertex } from './tools/SelectTool';
 
 const GRID_SIZE = 20;
 
@@ -46,27 +48,6 @@ export const Canvas: React.FC = () => {
   // Vertex drag with Escape cancellation (encapsulated in AutoSnappingMode)
   const { draggingVertex, startDrag, endDrag } = useVertexDrag(updateShape);
   
-  // Calculate selected shape center for ortho axes
-  const getSelectedShapeCenter = (): { x: number; y: number } | null => {
-    if (selectedIds.length === 0) return null;
-    
-    let totalX = 0;
-    let totalY = 0;
-    let count = 0;
-    
-    selectedIds.forEach(id => {
-      const shape = shapes.find(s => s.id === id);
-      if (shape) {
-        totalX += shape.x;
-        totalY += shape.y;
-        count++;
-      }
-    });
-    
-    if (count === 0) return null;
-    return { x: totalX / count, y: totalY / count };
-  };
-
   // Snap function
   const snapToGrid = useCallback((val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE, []);
 
@@ -315,61 +296,18 @@ export const Canvas: React.FC = () => {
 
     // 1. Vertex Dragging (Select Mode)
     if (draggingVertex && tool === 'select') {
-        const mouseX = pos.x;
-        const mouseY = pos.y;
+        const handled = handleDraggingVertex({
+            draggingVertex,
+            tool,
+            e,
+            pos,
+            shapes,
+            updateShape,
+            snapToGrid,
+            setHoveredSnapPoint
+        });
         
-        const isSnappingEnabled = e.evt.altKey;
-        const isOrthoEnabled = e.evt.shiftKey;
-        
-        let newX = mouseX;
-        let newY = mouseY;
-        
-        // Check if we're dragging a segment vertex
-        const draggedShape = shapes.find(s => s.id === draggingVertex.shapeId);
-        const isSegmentVertex = draggedShape?.type === 'segment';
-        
-        // For segments with ortho: make segment H/V (handled in handleVertexDrag)
-        // For other shapes: constrain movement to axis
-        if (isOrthoEnabled && !isSegmentVertex) {
-            const constrained = constrainToAxis(
-                { x: draggingVertex.startX, y: draggingVertex.startY },
-                { x: mouseX, y: mouseY }
-            );
-            newX = constrained.x;
-            newY = constrained.y;
-        }
-        
-        // Then apply grid snapping if enabled
-        if (isSnappingEnabled) {
-             newX = snapToGrid(newX);
-             newY = snapToGrid(newY);
-        }
-
-        // Pass isOrthoEnabled for line H/V constraint
-        handleVertexDrag(draggingVertex, newX, newY, shapes, updateShape, isOrthoEnabled);
-        
-        // Calculate actual highlight position (for segments with ortho, compute constrained position)
-        let highlightX = newX;
-        let highlightY = newY;
-        if (isOrthoEnabled && isSegmentVertex && draggedShape?.points && draggedShape.points.length === 4) {
-            const idx = draggingVertex.index;
-            const otherIndex = idx === 0 ? 1 : 0;
-            const otherAbsX = draggedShape.x + draggedShape.points[otherIndex * 2];
-            const otherAbsY = draggedShape.y + draggedShape.points[otherIndex * 2 + 1];
-            const constrained = constrainLineToOrtho(otherAbsX, otherAbsY, newX, newY);
-            highlightX = constrained.endX;
-            highlightY = constrained.endY;
-        }
-             
-         // Update the visual highlight position to follow the mouse
-         setHoveredSnapPoint({
-             shapeId: draggingVertex.shapeId,
-             index: draggingVertex.index,
-             x: highlightX,
-             y: highlightY,
-             type: 'vertex'
-         });
-        return;
+        if (handled) return;
     }
 
     if (isSelecting) {
@@ -448,161 +386,7 @@ export const Canvas: React.FC = () => {
       // No special double-click behavior needed
   };
 
-  const handleTrim = (targetId: string, clickX: number, clickY: number) => {
-      const targetShape = shapes.find(s => s.id === targetId);
-      if (!targetShape || targetShape.type !== 'segment') {
-          // Can only trim segments for now
-          return;
-      }
-
-      const p1 = { x: targetShape.x + (targetShape.points?.[0] || 0), y: targetShape.y + (targetShape.points?.[1] || 0) };
-      const p2 = { x: targetShape.x + (targetShape.points?.[2] || 0), y: targetShape.y + (targetShape.points?.[3] || 0) };
-
-      // Find all intersections with other shapes
-      const intersections: { t: number, point: { x: number, y: number } }[] = [];
-
-      shapes.forEach(other => {
-          if (other.id === targetId) return;
-
-          const otherLines: { p1: { x: number, y: number }, p2: { x: number, y: number } }[] = [];
-
-          if (other.type === 'segment') {
-              otherLines.push({
-                  p1: { x: other.x + (other.points?.[0] || 0), y: other.y + (other.points?.[1] || 0) },
-                  p2: { x: other.x + (other.points?.[2] || 0), y: other.y + (other.points?.[3] || 0) }
-              });
-          } else if (other.type === 'rect') {
-             // Convert rect to 4 lines
-             const rectLines = getRectLines(other.x, other.y, other.width || 0, other.height || 0, other.rotation);
-             rectLines.forEach(l => {
-                 otherLines.push({ p1: l[0], p2: l[1] });
-             });
-          }
-          // Circle intersection unimplemented for now
-
-          otherLines.forEach(line => {
-              const intersection = getLineIntersection(p1, p2, line.p1, line.p2);
-              if (intersection) {
-                  // Calculate t (0 to 1) along target line
-                  // t = distance(p1, intersection) / distance(p1, p2)
-                  const distTotal = distance(p1, p2);
-                  const distInt = distance(p1, intersection);
-                  const t = distInt / distTotal;
-                  
-                  intersections.push({ t, point: intersection });
-              }
-          });
-      });
-
-      // Sort intersections by t
-      intersections.sort((a, b) => a.t - b.t);
-
-      // Create segments (0 -> t1, t1 -> t2, ... tn -> 1)
-      const ts = [0, ...intersections.map(i => i.t), 1];
-      
-      // Find which segment was clicked
-      const lineLen = distance(p1, p2);
-      if (lineLen === 0) return;
-      
-      const vx = p2.x - p1.x;
-      const vy = p2.y - p1.y;
-      
-      const ux = clickX - p1.x;
-      const uy = clickY - p1.y;
-
-      const tClick = (ux * vx + uy * vy) / (lineLen * lineLen);
-
-      let removeIndex = -1;
-      for (let i = 0; i < ts.length - 1; i++) {
-          if (tClick >= ts[i] && tClick <= ts[i+1]) {
-              removeIndex = i;
-              break;
-          }
-      }
-
-      if (removeIndex === -1) return;
-
-      if (intersections.length === 0) {
-          deleteShape(targetId);
-          return;
-      }
-
-      const segmentsToCreate: Shape[] = [];
-      
-      if (removeIndex > 0) {
-          const startPt = p1;
-          const endPt = intersections[removeIndex - 1].point; 
-          
-          segmentsToCreate.push({
-              id: '', 
-              type: 'segment',
-              x: startPt.x,
-              y: startPt.y,
-              points: [0, 0, endPt.x - startPt.x, endPt.y - startPt.y],
-              stroke: targetShape.stroke,
-              rotation: 0
-          });
-      }
-
-      if (removeIndex < ts.length - 2) {
-          const startPt = intersections[removeIndex].point;
-          const endPt = p2;
-          
-          segmentsToCreate.push({
-              id: '',
-              type: 'segment',
-              x: startPt.x,
-              y: startPt.y,
-              points: [0, 0, endPt.x - startPt.x, endPt.y - startPt.y],
-              stroke: targetShape.stroke,
-              rotation: 0
-          });
-      }
-
-      deleteShape(targetId);
-      segmentsToCreate.forEach(l => addShape(l));
-  };
-
-  // Grid generation - stroke width adjusts for zoom to maintain visual consistency
-  const renderGrid = () => {
-    const lines = [];
-    // When zoomed, we need to render more grid to cover visible area
-    const visibleWidth = window.innerWidth / viewport.scale;
-    const visibleHeight = window.innerHeight / viewport.scale;
-    const offsetX = -viewport.x / viewport.scale;
-    const offsetY = -viewport.y / viewport.scale;
-    
-    // Calculate grid bounds with some padding
-    const startCol = Math.floor(offsetX / GRID_SIZE) - 1;
-    const endCol = Math.ceil((offsetX + visibleWidth) / GRID_SIZE) + 1;
-    const startRow = Math.floor(offsetY / GRID_SIZE) - 1;
-    const endRow = Math.ceil((offsetY + visibleHeight) / GRID_SIZE) + 1;
-    
-    // Stroke width inversely proportional to scale so it looks the same on screen
-    const gridStrokeWidth = 1 / viewport.scale;
-
-    for (let i = startCol; i <= endCol; i++) {
-      lines.push(
-        <Line
-          key={`v-${i}`}
-          points={[i * GRID_SIZE, startRow * GRID_SIZE, i * GRID_SIZE, endRow * GRID_SIZE]}
-          stroke="#e5e7eb"
-          strokeWidth={gridStrokeWidth}
-        />
-      );
-    }
-    for (let j = startRow; j <= endRow; j++) {
-      lines.push(
-        <Line
-          key={`h-${j}`}
-          points={[startCol * GRID_SIZE, j * GRID_SIZE, endCol * GRID_SIZE, j * GRID_SIZE]}
-          stroke="#e5e7eb"
-          strokeWidth={gridStrokeWidth}
-        />
-      );
-    }
-    return lines;
-  };
+  // handleTrim removed - using Trim tool
 
   // Get triangle preview data
   const trianglePreview = drawingTools.getTrianglePreview();
@@ -653,7 +437,7 @@ export const Canvas: React.FC = () => {
         scaleX={viewport.scale}
         scaleY={viewport.scale}
       >
-        {renderGrid()}
+        <Grid viewport={viewport} />
         {shapes.map((shape) => (
           <ShapeObj
             key={shape.id}
@@ -668,24 +452,20 @@ export const Canvas: React.FC = () => {
                 const screenPos = stage?.getPointerPosition();
                 if (screenPos) {
                    const pos = screenToWorld(screenPos.x, screenPos.y);
-                   handleTrim(shape.id, pos.x, pos.y);
+                   handleTrim(shape.id, pos.x, pos.y, shapes, addShape, deleteShape);
                 }
             }}
           />
         ))}
         <SelectionBoxOverlay selectionBox={selectionBox} viewportScale={viewport.scale} />
         {/* Ortho Mode Axes - show when shift is held and object is selected */}
-        {isShiftPressed && selectedIds.length > 0 && tool === 'select' && (() => {
-          const center = getSelectedShapeCenter();
-          if (!center) return null;
-          return (
-            <OrthoAxes 
-              center={center} 
-              screenWidth={window.innerWidth / viewport.scale} 
-              screenHeight={window.innerHeight / viewport.scale} 
-            />
-          );
-        })()}
+        <OrthoAxesOverlay 
+            isShiftPressed={isShiftPressed} 
+            selectedIds={selectedIds} 
+            tool={tool} 
+            shapes={shapes} 
+            viewportScale={viewport.scale} 
+        />
         <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} viewportScale={viewport.scale} />
         {/* Triangle tool preview */}
         <TrianglePreview drawState={trianglePreview.drawState} previewPoint={trianglePreview.previewPoint} />
