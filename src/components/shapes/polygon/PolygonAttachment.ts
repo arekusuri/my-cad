@@ -91,6 +91,9 @@ export function getSegmentAttachmentsToPolygon(
 /**
  * Update all segments attached to this polygon.
  * Returns an object mapping segment IDs to their new attributes.
+ * 
+ * If a segment has only one endpoint attached, the entire segment translates.
+ * If both endpoints are attached, each endpoint moves independently.
  */
 export function updateAttachedSegments(
     polygon: Shape,
@@ -109,6 +112,10 @@ export function updateAttachedSegments(
         const targetPos = getAttachmentPosition(polygon, attachment.attachType, attachment.targetIndex);
         if (!targetPos) continue;
         
+        // Check how many attachments this segment has in total
+        const segmentTotalAttachments = segmentAttachments.filter(a => a.segmentId === segment.id);
+        const hasOnlyOneAttachment = segmentTotalAttachments.length === 1;
+        
         // Get or create updates for this segment
         if (!updates[segment.id]) {
             updates[segment.id] = { 
@@ -121,8 +128,19 @@ export function updateAttachedSegments(
         const currentUpdate = updates[segment.id];
         const points = currentUpdate.points as number[];
         
-        if (attachment.endpoint === 0) {
-            // Update start point - move the segment origin
+        if (hasOnlyOneAttachment) {
+            // Only one attachment - translate the entire segment
+            // Calculate delta from current attached point position to target position
+            const currentAttachedX = segment.x + segment.points[attachment.endpoint * 2];
+            const currentAttachedY = segment.y + segment.points[attachment.endpoint * 2 + 1];
+            const deltaX = targetPos.x - currentAttachedX;
+            const deltaY = targetPos.y - currentAttachedY;
+            
+            currentUpdate.x = segment.x + deltaX;
+            currentUpdate.y = segment.y + deltaY;
+            // Points stay the same (segment shape unchanged)
+        } else if (attachment.endpoint === 0) {
+            // Two attachments - update start point, move the segment origin
             const endAbsX = segment.x + segment.points[2];
             const endAbsY = segment.y + segment.points[3];
             
@@ -134,7 +152,7 @@ export function updateAttachedSegments(
             points[0] = 0;
             points[1] = 0;
         } else {
-            // Update end point
+            // Two attachments - update end point
             const startX = currentUpdate.x !== undefined ? currentUpdate.x : segment.x;
             const startY = currentUpdate.y !== undefined ? currentUpdate.y : segment.y;
             points[2] = targetPos.x - startX;

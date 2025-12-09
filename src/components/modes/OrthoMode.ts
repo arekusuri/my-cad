@@ -122,43 +122,12 @@ export function constrainToRightAngle(
         return currentPoint; // Can't constrain if vectors are too short
     }
     
-    // Strategy: Project the current point onto the line that would make a right angle
-    // We have two options:
-    // 1. Keep edge 1 direction fixed, adjust current to make edge 2 perpendicular
-    // 2. Keep edge 2 direction fixed, adjust current to make edge 1 perpendicular
-    
-    // We'll pick the one that's closest to the current position
-    
-    // Option 1: Keep direction from prev to current, find point where edge 2 is perpendicular
-    // The perpendicular to v1 at currentPoint should pass through nextPoint
-    // Perpendicular direction to v1: (-v1y, v1x) normalized
-    const perp1x = -v1y / len1;
-    const perp1y = v1x / len1;
-    
-    // Project nextPoint onto line through currentPoint with direction perp1
-    // currentPoint + t * perp1 = closest point to nextPoint on perp line
-    // t = dot(nextPoint - currentPoint, perp1)
-    const t1 = (nextPoint.x - currentPoint.x) * perp1x + (nextPoint.y - currentPoint.y) * perp1y;
-    const option1 = {
-        x: currentPoint.x + t1 * perp1x - (nextPoint.x - currentPoint.x - t1 * perp1x),
-        y: currentPoint.y + t1 * perp1y - (nextPoint.y - currentPoint.y - t1 * perp1y)
-    };
-    
-    // Actually, let's use a simpler approach:
-    // Find the point on the line from prev through current that makes a 90° with next
-    
     // Direction from prev to current (normalized)
     const dir1x = v1x / len1;
     const dir1y = v1y / len1;
     
     // We want to find point P on the ray from prev in direction dir1
     // such that (P - prev) · (next - P) = 0 (perpendicular)
-    // Let P = prev + t * dir1
-    // (t * dir1) · (next - prev - t * dir1) = 0
-    // t * (dir1 · (next - prev)) - t² * (dir1 · dir1) = 0
-    // t * (dir1 · (next - prev)) = t²
-    // t = dir1 · (next - prev)
-    
     const dpx = nextPoint.x - prevPoint.x;
     const dpy = nextPoint.y - prevPoint.y;
     const t_opt1 = dir1x * dpx + dir1y * dpy;
@@ -169,16 +138,8 @@ export function constrainToRightAngle(
     };
     
     // Option 2: Keep direction from current to next, find where edge 1 is perpendicular
-    // Direction from next backwards
     const dir2x = -v2x / len2;
     const dir2y = -v2y / len2;
-    
-    // Find point P on ray from next in direction dir2
-    // such that (prev - P) · (P - next) = 0
-    // Let P = next + t * dir2
-    // (prev - next - t * dir2) · (t * dir2) = 0
-    // t * ((prev - next) · dir2) - t² = 0
-    // t = (prev - next) · dir2
     
     const dnx = prevPoint.x - nextPoint.x;
     const dny = prevPoint.y - nextPoint.y;

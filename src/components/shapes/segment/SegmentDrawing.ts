@@ -1,11 +1,13 @@
 import type { DrawingTool, DrawingContext, DrawingMouseEvent, DrawingResult, SnapPointInfo } from '../../tools/DrawingTool';
 import type { Shape } from '../../../store/useStore';
 import { constrainLineToOrtho } from '../../modes/OrthoMode';
+import type { Point } from '../../../utils/geometry';
 
 /**
  * Segment (line) drawing tool
  * Click and drag to create a line segment.
  * When drawing with Alt key, endpoints snap to vertices/midpoints and create attachments.
+ * Also shows intersection points (垂足) with other edges when Alt is pressed.
  */
 export class SegmentDrawing implements DrawingTool {
     readonly name = 'segment';
@@ -18,6 +20,9 @@ export class SegmentDrawing implements DrawingTool {
     // Track snap points for creating attachments
     private startSnapInfo: SnapPointInfo | null = null;
     private endSnapInfo: SnapPointInfo | null = null;
+    
+    // Track intersection points (垂足) for display
+    private intersectionPoints: Point[] = [];
     
     handleMouseDown(e: DrawingMouseEvent, ctx: DrawingContext): DrawingResult {
         if (e.button !== 0) return { handled: false };
@@ -72,7 +77,9 @@ export class SegmentDrawing implements DrawingTool {
         
         let x = e.x;
         let y = e.y;
-        this.endSnapInfo = null;
+        
+        // Clear intersection points by default
+        this.intersectionPoints = [];
         
         // Apply snapping if Alt is pressed
         if (e.altKey) {
@@ -84,8 +91,16 @@ export class SegmentDrawing implements DrawingTool {
             } else {
                 x = ctx.snapToGrid(x);
                 y = ctx.snapToGrid(y);
+                // Only clear endSnapInfo if we're in snap mode but didn't find a snap point
+                this.endSnapInfo = null;
             }
+            
+            // Find intersection points (垂足) with other shape edges
+            const lineStart: Point = { x: this.startX, y: this.startY };
+            const lineEnd: Point = { x, y };
+            this.intersectionPoints = ctx.findLineIntersections(lineStart, lineEnd, this.currentShapeId);
         }
+        // Note: Don't clear endSnapInfo when Alt is not pressed - keep the last snapped position
         
         // Calculate shape update
         const updates = this.calculateShapeUpdate(x, y, e.shiftKey);
@@ -147,6 +162,7 @@ export class SegmentDrawing implements DrawingTool {
         this.currentShapeId = null;
         this.startSnapInfo = null;
         this.endSnapInfo = null;
+        this.intersectionPoints = [];
         this.finish();
     }
     
@@ -155,10 +171,14 @@ export class SegmentDrawing implements DrawingTool {
         this.currentShapeId = null;
         this.startSnapInfo = null;
         this.endSnapInfo = null;
+        this.intersectionPoints = [];
     }
     
-    getPreviewData(): { shapeId: string | null } {
-        return { shapeId: this.currentShapeId };
+    getPreviewData(): { shapeId: string | null; intersectionPoints: Point[] } {
+        return { 
+            shapeId: this.currentShapeId,
+            intersectionPoints: this.intersectionPoints,
+        };
     }
     
     protected calculateShapeUpdate(x: number, y: number, isShiftPressed: boolean): Partial<Shape> {

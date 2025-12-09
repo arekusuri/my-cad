@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { RegularPolygon, Transformer, Line, Circle } from 'react-konva';
 import type { Shape } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
@@ -6,6 +6,7 @@ import Konva from 'konva';
 import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops';
 import { getPolygonTransformAttrs, calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from './PolygonShape_ops';
 import { setCursor } from '../cursor';
+import { updateAttachedSegments } from './PolygonAttachment';
 
 interface PolygonShapeProps {
   shape: Shape;
@@ -32,9 +33,28 @@ export const PolygonShape: React.FC<PolygonShapeProps> = ({
   const vertexEditMode = useStore((state) => state.vertexEditMode);
   const selectedVertexIndices = useStore((state) => state.selectedVertexIndices);
   const deleteShape = useStore((state) => state.deleteShape);
+  const shapes = useStore((state) => state.shapes);
+  const segmentAttachments = useStore((state) => state.segmentAttachments);
+  const updateShapeStore = useStore((state) => state.updateShape);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const [isDraggingShape, setIsDraggingShape] = React.useState(false);
+
+  // Update attached segments during drag
+  const updateAttachedSegmentsDuringDrag = useCallback((currentX: number, currentY: number) => {
+    // Create a temporary shape object with the current drag position
+    const tempShape: Shape = {
+      ...shape,
+      x: currentX,
+      y: currentY,
+    };
+    
+    // Get segment updates and apply them
+    const updates = updateAttachedSegments(tempShape, shapes, segmentAttachments);
+    Object.entries(updates).forEach(([segmentId, attrs]) => {
+      updateShapeStore(segmentId, attrs);
+    });
+  }, [shape, shapes, segmentAttachments, updateShapeStore]);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -97,6 +117,10 @@ export const PolygonShape: React.FC<PolygonShapeProps> = ({
               setCursor('grabbing', e);
             }}
             dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
+            onDragMove={(e) => {
+              // Update attached segments in real-time during drag
+              updateAttachedSegmentsDuringDrag(e.target.x(), e.target.y());
+            }}
             onDragEnd={(e) => {
               dragStartPos.current = null;
               setIsDraggingShape(false);
@@ -183,6 +207,10 @@ export const PolygonShape: React.FC<PolygonShapeProps> = ({
           setCursor('grabbing', e);
         }}
         dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
+        onDragMove={(e) => {
+          // Update attached segments in real-time during drag
+          updateAttachedSegmentsDuringDrag(e.target.x(), e.target.y());
+        }}
         onDragEnd={(e) => {
           dragStartPos.current = null;
           setIsDraggingShape(false);

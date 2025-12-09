@@ -1,5 +1,6 @@
 import { useStore, type Shape, type SegmentAttachment } from '../../store/useStore';
 import type { Point } from '../../utils/geometry';
+import { findLineIntersections } from '../../utils/geometry';
 
 /** Full snap point info including the shape and point type */
 export interface SnapPointInfo {
@@ -20,6 +21,8 @@ export interface DrawingContext {
     findSnapPoint: (x: number, y: number, excludeShapeId?: string | null) => Point | null;
     /** Find snap point with full info (shape id, type, index) */
     findSnapPointInfo: (x: number, y: number, excludeShapeId?: string | null) => SnapPointInfo | null;
+    /** Find intersection points between a line and all shape edges */
+    findLineIntersections: (lineStart: Point, lineEnd: Point, excludeShapeId?: string | null) => Point[];
     /** Add shape to store */
     addShape: (shape: Omit<Shape, 'id'>) => void;
     /** Update existing shape */
@@ -212,6 +215,10 @@ export function createDrawingContext(
         snapToGrid,
         findSnapPoint,
         findSnapPointInfo: findSnapPointInfo || (() => null),
+        findLineIntersections: (lineStart: Point, lineEnd: Point, excludeShapeId?: string | null) => {
+            const shapes = useStore.getState().shapes;
+            return findLineIntersections(lineStart, lineEnd, shapes, excludeShapeId);
+        },
         addShape: store.addShape,
         updateShape: store.updateShape,
         deleteShape: store.deleteShape,

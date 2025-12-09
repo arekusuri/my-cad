@@ -309,6 +309,75 @@ export function getShapeVertices(shape: Shape): Point[] {
     return vertices;
 }
 
+/**
+ * Get all edge segments (line segments) of a shape for intersection testing.
+ * Returns an array of [p1, p2] pairs representing each edge.
+ */
+export function getShapeEdges(shape: Shape): [Point, Point][] {
+    const edges: [Point, Point][] = [];
+    
+    if (shape.type === 'rect') {
+        const lines = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation);
+        lines.forEach(line => {
+            edges.push([line[0], line[1]]);
+        });
+    } else if (shape.type === 'segment') {
+        const vertices = getShapeVertices(shape);
+        if (vertices.length >= 2) {
+            edges.push([vertices[0], vertices[1]]);
+        }
+    } else if (shape.type === 'triangle' || shape.type === 'polygon') {
+        const vertices = getShapeVertices(shape);
+        const numPoints = vertices.length;
+        if (numPoints >= 2) {
+            // Closed shapes - connect all vertices including last to first
+            for (let i = 0; i < numPoints; i++) {
+                const p1 = vertices[i];
+                const p2 = vertices[(i + 1) % numPoints];
+                edges.push([p1, p2]);
+            }
+        }
+    }
+    
+    return edges;
+}
+
+/**
+ * Find all intersection points between a line segment and all edges of other shapes.
+ * Used for showing 垂足 (perpendicular foot / intersection points) during drawing.
+ */
+export function findLineIntersections(
+    lineStart: Point,
+    lineEnd: Point,
+    shapes: Shape[],
+    excludeShapeId?: string | null
+): Point[] {
+    const intersections: Point[] = [];
+    
+    shapes.forEach(shape => {
+        if (excludeShapeId && shape.id === excludeShapeId) return;
+        
+        const edges = getShapeEdges(shape);
+        edges.forEach(([p1, p2]) => {
+            const intersection = getLineIntersection(lineStart, lineEnd, p1, p2);
+            if (intersection) {
+                // Check if intersection is not too close to line endpoints (avoid showing snap point at start)
+                const distToStart = distance(intersection, lineStart);
+                const distToEnd = distance(intersection, lineEnd);
+                if (distToStart > 5 && distToEnd > 5) {
+                    // Check if this intersection is not a duplicate
+                    const isDuplicate = intersections.some(p => distance(p, intersection) < 1);
+                    if (!isDuplicate) {
+                        intersections.push(intersection);
+                    }
+                }
+            }
+        });
+    });
+    
+    return intersections;
+}
+
 export function getShapeMidpoints(shape: Shape): Point[] {
     const midpoints: Point[] = [];
     

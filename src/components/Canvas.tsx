@@ -6,6 +6,7 @@ import Konva from 'konva';
 import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIntersectRect, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
 import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
 import { constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
+import { OrthoAxes } from './modes/OrthoMode.tsx';
 import { useDrawingTools } from './tools/useDrawingTools';
 import type { SnapPointInfo } from './tools/DrawingTool';
 import { TrianglePreview, getTriangleAttachedPoints, hasTriangleAttachedPointAt, updateTriangleAttachedSegments } from './shapes/triangle';
@@ -126,27 +127,25 @@ export const Canvas: React.FC = () => {
 
   // Apply segment attachments when shapes move
   // Uses attachment logic from TriangleAttachment and PolygonAttachment
-  const prevShapesRef = React.useRef<Record<string, { x: number; y: number; rotation: number }>>({});
+  const prevShapesRef = React.useRef<string>('');
   
   useEffect(() => {
     if (segmentAttachments.length === 0) return;
     
-    // Check if any target shapes have moved
+    // Create a signature of all target shapes' positions to detect changes
     const targetShapeIds = new Set(segmentAttachments.map(a => a.targetShapeId));
-    let needsUpdate = false;
+    const currentSignature = Array.from(targetShapeIds)
+      .map(id => {
+        const shape = shapes.find(s => s.id === id);
+        if (!shape) return '';
+        // Include x, y, rotation, and points for vertex-based shapes
+        const pointsStr = shape.points ? shape.points.join(',') : '';
+        return `${id}:${shape.x}:${shape.y}:${shape.rotation}:${pointsStr}`;
+      })
+      .join('|');
     
-    for (const shapeId of targetShapeIds) {
-      const shape = shapes.find(s => s.id === shapeId);
-      if (!shape) continue;
-      
-      const prev = prevShapesRef.current[shapeId];
-      if (!prev || prev.x !== shape.x || prev.y !== shape.y || prev.rotation !== shape.rotation) {
-        needsUpdate = true;
-        break;
-      }
-    }
-    
-    if (needsUpdate) {
+    // Only update if something changed
+    if (currentSignature !== prevShapesRef.current) {
       // Collect all segment updates from triangles and polygons
       const allUpdates: Record<string, Partial<Shape>> = {};
       
@@ -160,18 +159,23 @@ export const Canvas: React.FC = () => {
         Object.assign(allUpdates, updates);
       });
       
-      // Apply updates to segments
+      // Apply updates to segments (only if there are actual changes)
       Object.entries(allUpdates).forEach(([segmentId, attrs]) => {
-        updateShape(segmentId, attrs);
+        const segment = shapes.find(s => s.id === segmentId);
+        if (segment) {
+          // Only update if position actually changed
+          const needsUpdate = 
+            attrs.x !== segment.x || 
+            attrs.y !== segment.y ||
+            JSON.stringify(attrs.points) !== JSON.stringify(segment.points);
+          if (needsUpdate) {
+            updateShape(segmentId, attrs);
+          }
+        }
       });
+      
+      prevShapesRef.current = currentSignature;
     }
-    
-    // Update prev shapes ref
-    const newPrev: Record<string, { x: number; y: number; rotation: number }> = {};
-    shapes.forEach(s => {
-      newPrev[s.id] = { x: s.x, y: s.y, rotation: s.rotation };
-    });
-    prevShapesRef.current = newPrev;
   }, [shapes, segmentAttachments, updateShape]);
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -593,6 +597,9 @@ export const Canvas: React.FC = () => {
 
   // Get triangle preview data
   const trianglePreview = drawingTools.getTrianglePreview();
+  
+  // Get segment intersection points (垂足) for display during drawing
+  const segmentIntersections = drawingTools.getSegmentIntersections();
 
   // Calculate all attached point positions for rendering
   const getAttachedPointsToRender = useCallback(() => {
@@ -659,30 +666,32 @@ export const Canvas: React.FC = () => {
         {isShiftPressed && selectedIds.length > 0 && tool === 'select' && (() => {
           const center = getSelectedShapeCenter();
           if (!center) return null;
-          const screenWidth = window.innerWidth;
-          const screenHeight = window.innerHeight;
           return (
-            <>
-              {/* Horizontal axis (X) - Red */}
-              <Line
-                points={[0, center.y, screenWidth, center.y]}
-                stroke="rgba(255, 0, 0, 0.5)"
-                strokeWidth={1}
-                dash={[10, 5]}
-                listening={false}
-              />
-              {/* Vertical axis (Y) - Green */}
-              <Line
-                points={[center.x, 0, center.x, screenHeight]}
-                stroke="rgba(0, 200, 0, 0.5)"
-                strokeWidth={1}
-                dash={[10, 5]}
-                listening={false}
-              />
-            </>
+            <OrthoAxes 
+              center={center} 
+              screenWidth={window.innerWidth} 
+              screenHeight={window.innerHeight} 
+            />
           );
         })()}
         <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} />
+        {/* Segment intersection points (垂足) - show as X marks */}
+        {segmentIntersections.map((point, i) => (
+          <React.Fragment key={`intersection-${i}`}>
+            <Line
+              points={[point.x - 5, point.y - 5, point.x + 5, point.y + 5]}
+              stroke="#f97316"
+              strokeWidth={2}
+              listening={false}
+            />
+            <Line
+              points={[point.x - 5, point.y + 5, point.x + 5, point.y - 5]}
+              stroke="#f97316"
+              strokeWidth={2}
+              listening={false}
+            />
+          </React.Fragment>
+        ))}
         {/* Triangle tool preview */}
         <TrianglePreview drawState={trianglePreview.drawState} previewPoint={trianglePreview.previewPoint} />
         {/* Render attached points */}
