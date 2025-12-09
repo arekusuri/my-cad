@@ -10,4 +10,10 @@ export {
     getSegmentAttachmentsToTriangle,
     updateAttachedSegments as updateTriangleAttachedSegments,
 } from './TriangleAttachment';
+export { 
+    getCircumcenter, 
+    getCircumcenterPoint, 
+    calculateCircumcenter,
+    type Circumcenter,
+} from './TriangleCircumcenter';
 

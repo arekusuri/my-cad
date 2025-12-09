@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { Line, Transformer, Circle } from 'react-konva';
 import type { Shape } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
@@ -7,6 +7,7 @@ import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops
 import { calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from '../polygon/PolygonShape_ops';
 import { setCursor } from '../cursor';
 import { updateAttachedSegments } from './TriangleAttachment';
+import { getCircumcenter } from './TriangleCircumcenter';
 
 interface TriangleShapeProps {
   shape: Shape;
@@ -41,6 +42,9 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
   
   // Stroke width that maintains consistent visual appearance regardless of zoom
   const strokeWidth = 1 / viewportScale;
+
+  // Calculate circumcenter for the triangle
+  const circumcenter = useMemo(() => getCircumcenter(shape), [shape]);
 
   // Update attached segments during drag
   const updateAttachedSegmentsDuringDrag = useCallback((currentX: number, currentY: number) => {
@@ -160,6 +164,31 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
             />
           );
         })
+      )}
+      {/* Circumcenter visualization - shown when triangle is selected */}
+      {isSelected && circumcenter && (
+        <>
+          {/* Circumscribed circle (dashed) */}
+          <Circle
+            x={circumcenter.center.x}
+            y={circumcenter.center.y}
+            radius={circumcenter.radius}
+            stroke="#f59e0b"
+            strokeWidth={strokeWidth}
+            dash={[6 / viewportScale, 4 / viewportScale]}
+            listening={false}
+          />
+          {/* Circumcenter point */}
+          <Circle
+            x={circumcenter.center.x}
+            y={circumcenter.center.y}
+            radius={4 / viewportScale}
+            fill="#f59e0b"
+            stroke="#d97706"
+            strokeWidth={strokeWidth}
+            listening={false}
+          />
+        </>
       )}
       {isSelected && tool === 'select' && !vertexEditMode && (
         <Transformer
