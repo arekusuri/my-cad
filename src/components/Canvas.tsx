@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Line, Rect } from 'react-konva';
 import { useStore, type Shape } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
@@ -9,6 +9,12 @@ import { constrainToSquare, constrainLineToOrtho, constrainToAxis } from './mode
 
 const GRID_SIZE = 20;
 
+// Triangle drawing state
+interface TriangleDrawState {
+  p1: { x: number; y: number };
+  p2?: { x: number; y: number };
+}
+
 export const Canvas: React.FC = () => {
   const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, setVertexEditMode } = useStore();
   const isShiftPressed = useStore((state) => state.isShiftPressed);
@@ -17,6 +23,18 @@ export const Canvas: React.FC = () => {
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [hoveredSnapPoint, setHoveredSnapPoint] = useState<SnapPoint | null>(null);
   const [draggingVertex, setDraggingVertex] = useState<{ shapeId: string; index: number; startX: number; startY: number } | null>(null);
+  
+  // Triangle tool multi-click state
+  const [triangleDrawState, setTriangleDrawState] = useState<TriangleDrawState | null>(null);
+  const [trianglePreviewPoint, setTrianglePreviewPoint] = useState<{ x: number; y: number } | null>(null);
+  
+  // Reset triangle state when tool changes
+  useEffect(() => {
+    if (tool !== 'triangle') {
+      setTriangleDrawState(null);
+      setTrianglePreviewPoint(null);
+    }
+  }, [tool]);
   
   // Calculate selected shape center for ortho axes
   const getSelectedShapeCenter = (): { x: number; y: number } | null => {
@@ -132,6 +150,42 @@ export const Canvas: React.FC = () => {
             y = vertexSnap.y;
         }
     }
+
+    // Triangle tool: multi-click handling
+    if (tool === 'triangle') {
+        if (!triangleDrawState) {
+            // First click: set point 1
+            setTriangleDrawState({ p1: { x, y } });
+            setTrianglePreviewPoint({ x, y });
+        } else if (!triangleDrawState.p2) {
+            // Second click: set point 2
+            setTriangleDrawState({ ...triangleDrawState, p2: { x, y } });
+            setTrianglePreviewPoint({ x, y });
+        } else {
+            // Third click: finalize triangle
+            const { p1, p2 } = triangleDrawState;
+            const p3 = { x, y };
+            
+            // Create triangle with points relative to p1 (origin)
+            addShape({
+                type: 'triangle',
+                x: p1.x,
+                y: p1.y,
+                stroke: 'black',
+                rotation: 0,
+                points: [
+                    0, 0,                           // p1 relative to origin
+                    p2.x - p1.x, p2.y - p1.y,       // p2 relative to origin
+                    p3.x - p1.x, p3.y - p1.y        // p3 relative to origin
+                ],
+            });
+            
+            // Reset triangle drawing state
+            setTriangleDrawState(null);
+            setTrianglePreviewPoint(null);
+        }
+        return;
+    }
     
     const newShapeBase = {
         x,
@@ -160,12 +214,6 @@ export const Canvas: React.FC = () => {
         x, 
         y, 
         points: [0, 0, 0, 0], // Points relative to origin
-      });
-    } else if (tool === 'triangle') {
-      addShape({
-        ...newShapeBase,
-        type: 'triangle',
-        radius: 0,
       });
     } else if (tool === 'polygon') {
       addShape({
@@ -263,6 +311,26 @@ export const Canvas: React.FC = () => {
         setHoveredSnapPoint(closest);
     } else {
         setHoveredSnapPoint(null);
+    }
+
+    // Triangle tool preview update
+    if (tool === 'triangle' && triangleDrawState) {
+        let previewX = pos.x;
+        let previewY = pos.y;
+        
+        if (isSnappingEnabled) {
+            const vertexSnap = findSnapPoint(pos.x, pos.y);
+            if (vertexSnap) {
+                previewX = vertexSnap.x;
+                previewY = vertexSnap.y;
+            } else {
+                previewX = snapToGrid(pos.x);
+                previewY = snapToGrid(pos.y);
+            }
+        }
+        
+        setTrianglePreviewPoint({ x: previewX, y: previewY });
+        return;
     }
 
     // 3. Drawing Logic
@@ -689,6 +757,72 @@ export const Canvas: React.FC = () => {
           );
         })()}
         <SelectModeVertexHighlight hoveredSnapPoint={hoveredSnapPoint} />
+        {/* Triangle tool preview */}
+        {tool === 'triangle' && triangleDrawState && trianglePreviewPoint && (
+          <>
+            {/* Line from p1 to current point (or p2 if set) */}
+            <Line
+              points={[
+                triangleDrawState.p1.x,
+                triangleDrawState.p1.y,
+                triangleDrawState.p2?.x ?? trianglePreviewPoint.x,
+                triangleDrawState.p2?.y ?? trianglePreviewPoint.y,
+              ]}
+              stroke="#3b82f6"
+              strokeWidth={1}
+              dash={[5, 5]}
+              listening={false}
+            />
+            {/* If p2 is set, show the full triangle preview */}
+            {triangleDrawState.p2 && (
+              <>
+                <Line
+                  points={[
+                    triangleDrawState.p2.x,
+                    triangleDrawState.p2.y,
+                    trianglePreviewPoint.x,
+                    trianglePreviewPoint.y,
+                  ]}
+                  stroke="#3b82f6"
+                  strokeWidth={1}
+                  dash={[5, 5]}
+                  listening={false}
+                />
+                <Line
+                  points={[
+                    trianglePreviewPoint.x,
+                    trianglePreviewPoint.y,
+                    triangleDrawState.p1.x,
+                    triangleDrawState.p1.y,
+                  ]}
+                  stroke="#3b82f6"
+                  strokeWidth={1}
+                  dash={[5, 5]}
+                  listening={false}
+                />
+              </>
+            )}
+            {/* Point markers */}
+            <Rect
+              x={triangleDrawState.p1.x - 3}
+              y={triangleDrawState.p1.y - 3}
+              width={6}
+              height={6}
+              fill="#3b82f6"
+              listening={false}
+            />
+            {triangleDrawState.p2 && (
+              <Rect
+                x={triangleDrawState.p2.x - 3}
+                y={triangleDrawState.p2.y - 3}
+                width={6}
+                height={6}
+                fill="#3b82f6"
+                listening={false}
+              />
+            )}
+          </>
+        )}
       </Layer>
     </Stage>
   );
