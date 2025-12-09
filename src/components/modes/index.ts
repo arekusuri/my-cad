@@ -30,6 +30,3 @@ export {
   SelectionBoxOverlay,
   type SelectionBox,
 } from './SelectionMode';
-
-// Perpendicular foot highlight (垂足)
-export { PerpendicularFootHighlight } from './PerpendicularFootHighlight';

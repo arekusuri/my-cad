@@ -1,13 +1,11 @@
 import type { DrawingTool, DrawingContext, DrawingMouseEvent, DrawingResult, SnapPointInfo } from '../../tools/DrawingTool';
 import type { Shape } from '../../../store/useStore';
 import { constrainLineToOrtho } from '../../modes/OrthoMode';
-import type { Point, PerpendicularFootInfo } from '../../../utils/geometry';
 
 /**
  * Segment (line) drawing tool
  * Click and drag to create a line segment.
  * When drawing with Alt key, endpoints snap to vertices/midpoints and create attachments.
- * Automatically snaps to perpendicular feet (垂足) on nearby edges.
  */
 export class SegmentDrawing implements DrawingTool {
     readonly name = 'segment';
@@ -20,12 +18,6 @@ export class SegmentDrawing implements DrawingTool {
     // Track snap points for creating attachments
     private startSnapInfo: SnapPointInfo | null = null;
     private endSnapInfo: SnapPointInfo | null = null;
-    
-    // Track perpendicular foot info for creating perpendicular attachments
-    private endPerpFootInfo: PerpendicularFootInfo | null = null;
-    
-    // Track perpendicular feet (垂足) for display - closest points on nearby edges
-    private perpendicularFeet: Point[] = [];
     
     handleMouseDown(e: DrawingMouseEvent, ctx: DrawingContext): DrawingResult {
         if (e.button !== 0) return { handled: false };
@@ -81,10 +73,6 @@ export class SegmentDrawing implements DrawingTool {
         let x = e.x;
         let y = e.y;
         
-        // Always find perpendicular feet (垂足) from current position to nearby edges
-        const currentPos: Point = { x, y };
-        this.perpendicularFeet = ctx.findPerpendicularFeet(currentPos, this.currentShapeId);
-        
         // Apply snapping if Alt is pressed
         if (e.altKey) {
             const snapInfo = ctx.findSnapPointInfo(x, y, this.currentShapeId);
@@ -113,28 +101,13 @@ export class SegmentDrawing implements DrawingTool {
             return { handled: false };
         }
         
-        let finalX = e.x;
-        let finalY = e.y;
-        this.endPerpFootInfo = null;
-        
-        // Try to snap to perpendicular foot first (closest perpendicular point on any edge)
-        const perpFootInfo = ctx.findClosestPerpendicularFootInfo({ x: e.x, y: e.y }, this.currentShapeId);
-        if (perpFootInfo) {
-            finalX = perpFootInfo.point.x;
-            finalY = perpFootInfo.point.y;
-            this.endPerpFootInfo = perpFootInfo;
-            // Apply final position snapped to perpendicular foot
-            const updates = this.calculateShapeUpdate(finalX, finalY, e.shiftKey);
-            ctx.updateShape(this.currentShapeId, updates);
-        } else if (e.altKey) {
-            // If no perpendicular foot, try vertex/midpoint snap with Alt key
+        // Final snap check for end point
+        if (e.altKey) {
             const snapInfo = ctx.findSnapPointInfo(e.x, e.y, this.currentShapeId);
             if (snapInfo) {
                 this.endSnapInfo = snapInfo;
-                finalX = snapInfo.x;
-                finalY = snapInfo.y;
                 // Apply final position
-                const updates = this.calculateShapeUpdate(finalX, finalY, e.shiftKey);
+                const updates = this.calculateShapeUpdate(snapInfo.x, snapInfo.y, e.shiftKey);
                 ctx.updateShape(this.currentShapeId, updates);
             }
         }
@@ -157,16 +130,7 @@ export class SegmentDrawing implements DrawingTool {
                 });
             }
             
-            // Create perpendicular attachment if snapped to perpendicular foot
-            if (this.endPerpFootInfo && this.isValidPerpAttachmentTarget(this.endPerpFootInfo.shapeId, shapes)) {
-                ctx.addSegmentAttachment({
-                    segmentId: shape.id,
-                    endpoint: 1,
-                    targetShapeId: this.endPerpFootInfo.shapeId,
-                    attachType: 'perpendicular',
-                    targetIndex: this.endPerpFootInfo.edgeIndex,
-                });
-            } else if (this.endSnapInfo && this.isValidAttachmentTarget(this.endSnapInfo, shapes)) {
+            if (this.endSnapInfo && this.isValidAttachmentTarget(this.endSnapInfo, shapes)) {
                 ctx.addSegmentAttachment({
                     segmentId: shape.id,
                     endpoint: 1,
@@ -185,8 +149,6 @@ export class SegmentDrawing implements DrawingTool {
         this.currentShapeId = null;
         this.startSnapInfo = null;
         this.endSnapInfo = null;
-        this.endPerpFootInfo = null;
-        this.perpendicularFeet = [];
         this.finish();
     }
     
@@ -195,14 +157,11 @@ export class SegmentDrawing implements DrawingTool {
         this.currentShapeId = null;
         this.startSnapInfo = null;
         this.endSnapInfo = null;
-        this.endPerpFootInfo = null;
-        this.perpendicularFeet = [];
     }
     
-    getPreviewData(): { shapeId: string | null; perpendicularFeet: Point[] } {
+    getPreviewData(): { shapeId: string | null } {
         return { 
             shapeId: this.currentShapeId,
-            perpendicularFeet: this.perpendicularFeet,
         };
     }
     
@@ -245,12 +204,4 @@ export class SegmentDrawing implements DrawingTool {
         return targetShape !== undefined && 
                (targetShape.type === 'triangle' || targetShape.type === 'polygon');
     }
-    
-    /** Check if the shape is a valid perpendicular attachment target (triangle or polygon) */
-    private isValidPerpAttachmentTarget(shapeId: string, shapes: Shape[]): boolean {
-        const targetShape = shapes.find(s => s.id === shapeId);
-        return targetShape !== undefined && 
-               (targetShape.type === 'triangle' || targetShape.type === 'polygon');
-    }
 }
-
