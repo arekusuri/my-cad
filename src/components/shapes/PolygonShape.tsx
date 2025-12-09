@@ -4,10 +4,9 @@ import type { Shape } from '../../store/useStore';
 import { useStore } from '../../store/useStore';
 import Konva from 'konva';
 import { commonDragBoundFunc, limitResizeBoundBoxFunc } from './CommonShape_ops';
-import { getTriangleTransformAttrs } from './TriangleShape_ops';
-import { calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from './PolygonShape_ops';
+import { getPolygonTransformAttrs, calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from './PolygonShape_ops';
 
-interface TriangleShapeProps {
+interface PolygonShapeProps {
   shape: Shape;
   isSelected: boolean;
   onSelect: () => void;
@@ -15,7 +14,9 @@ interface TriangleShapeProps {
   onTrim: (e: Konva.KonvaEventObject<MouseEvent> | Konva.KonvaEventObject<TouchEvent>) => void;
 }
 
-export const TriangleShape: React.FC<TriangleShapeProps> = ({
+const POLYGON_SIDES = 6;
+
+export const PolygonShape: React.FC<PolygonShapeProps> = ({
   shape,
   isSelected,
   onSelect,
@@ -42,11 +43,11 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
 
   // Initialize points for vertex editing if missing
   useEffect(() => {
-      if (isSelected && vertexEditMode && !shape.points && shape.type === 'triangle') {
+      if (isSelected && vertexEditMode && !shape.points && shape.type === 'polygon') {
            const r = shape.radius || 0;
            const points = [];
-           for (let i = 0; i < 3; i++) {
-               const angle = (i * 2 * Math.PI / 3) - Math.PI / 2;
+           for (let i = 0; i < POLYGON_SIDES; i++) {
+               const angle = (i * 2 * Math.PI / POLYGON_SIDES) - Math.PI / 2;
                points.push(r * Math.cos(angle), r * Math.sin(angle));
            }
            onChange({ points });
@@ -145,7 +146,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
   return (
     <>
       <RegularPolygon
-        sides={3}
+        sides={POLYGON_SIDES}
         x={shape.x}
         y={shape.y}
         rotation={shape.rotation}
@@ -172,7 +173,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
         onTransformEnd={() => {
           const node = shapeRef.current as Konva.RegularPolygon;
           if (!node) return;
-          const newAttrs = getTriangleTransformAttrs(node, shape);
+          const newAttrs = getPolygonTransformAttrs(node, shape);
           onChange(newAttrs);
         }}
         ref={shapeRef as React.RefObject<Konva.RegularPolygon>}

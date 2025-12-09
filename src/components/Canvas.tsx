@@ -108,7 +108,7 @@ export const Canvas: React.FC = () => {
       }
     }
 
-    if (tool !== 'rect' && tool !== 'circle' && tool !== 'segment' && tool !== 'triangle') return;
+    if (tool !== 'rect' && tool !== 'circle' && tool !== 'segment' && tool !== 'triangle' && tool !== 'polygon') return;
 
     // Start drawing
     const stage = e.target.getStage();
@@ -165,6 +165,12 @@ export const Canvas: React.FC = () => {
       addShape({
         ...newShapeBase,
         type: 'triangle',
+        radius: 0,
+      });
+    } else if (tool === 'polygon') {
+      addShape({
+        ...newShapeBase,
+        type: 'polygon',
         radius: 0,
       });
     }
@@ -301,8 +307,8 @@ export const Canvas: React.FC = () => {
         width,
         height,
       });
-    } else if (shape.type === 'circle' || shape.type === 'triangle') {
-      // For circle/triangle, constrain to axis means radius is measured along X or Y only
+    } else if (shape.type === 'circle' || shape.type === 'triangle' || shape.type === 'polygon') {
+      // For circle/triangle/polygon, constrain to axis means radius is measured along X or Y only
       if (isShift) {
           const constrained = constrainToAxis({ x: shape.x, y: shape.y }, { x: snapX, y: snapY });
           snapX = constrained.x;
@@ -364,7 +370,7 @@ export const Canvas: React.FC = () => {
                 if (Math.abs(shape.width || 0) < 1 || Math.abs(shape.height || 0) < 1) {
                     deleteShape(shape.id);
                 }
-            } else if (shape.type === 'circle' || shape.type === 'triangle') {
+            } else if (shape.type === 'circle' || shape.type === 'triangle' || shape.type === 'polygon') {
                 if ((shape.radius || 0) < 1) {
                     deleteShape(shape.id);
                 }

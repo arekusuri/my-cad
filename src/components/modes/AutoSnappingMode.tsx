@@ -186,6 +186,37 @@ export const handleVertexDrag = (
             
             updateShape(shape.id, { points, radius: undefined }); // Switch to points mode
         }
+    } else if (shape.type === 'polygon') {
+        const POLYGON_SIDES = 6;
+        let points = shape.points ? [...shape.points] : [];
+                 
+        if (points.length === 0 && shape.radius) {
+            // Initialize points from regular polygon geometry (hexagon)
+            const r = shape.radius;
+            for (let i = 0; i < POLYGON_SIDES; i++) {
+                const angle = (i * 2 * Math.PI / POLYGON_SIDES) - Math.PI / 2;
+                points.push(r * Math.cos(angle), r * Math.sin(angle));
+            }
+        }
+        
+        if (points.length >= POLYGON_SIDES * 2) {
+            const idx = draggingVertex.index;
+            // Transform mouse absolute pos back to local space
+            const rad = - (shape.rotation * Math.PI) / 180;
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+            
+            const relX = newX - shape.x;
+            const relY = newY - shape.y;
+            
+            const localX = relX * cos - relY * sin;
+            const localY = relX * sin + relY * cos;
+            
+            points[idx * 2] = localX;
+            points[idx * 2 + 1] = localY;
+            
+            updateShape(shape.id, { points, radius: undefined }); // Switch to points mode
+        }
     }
 };
 

@@ -257,6 +257,42 @@ export function getShapeVertices(shape: Shape): Point[] {
                  vertices.push({ x: shape.x + rx, y: shape.y + ry });
             }
         }
+    } else if (shape.type === 'polygon') {
+        const POLYGON_SIDES = 6;
+        if (shape.points && shape.points.length >= POLYGON_SIDES * 2) {
+             // If points exist, use them directly
+             const points = shape.points;
+             const rad = (shape.rotation * Math.PI) / 180;
+             const cos = Math.cos(rad);
+             const sin = Math.sin(rad);
+             
+             for (let i = 0; i < points.length; i += 2) {
+                const px = points[i];
+                const py = points[i+1];
+                
+                const rx = px * cos - py * sin;
+                const ry = px * sin + py * cos;
+                
+                vertices.push({ x: shape.x + rx, y: shape.y + ry });
+            }
+        } else {
+            // Fallback to radius based regular hexagon
+            const r = shape.radius || 0;
+            const rad = (shape.rotation * Math.PI) / 180;
+            
+            for (let i = 0; i < POLYGON_SIDES; i++) {
+                 // Angle for vertex i in local space
+                 const angle = (i * 2 * Math.PI / POLYGON_SIDES) - Math.PI / 2; // -PI/2 to start at top
+                 const px = r * Math.cos(angle);
+                 const py = r * Math.sin(angle);
+                 
+                 // Rotate by shape rotation
+                 const rx = px * Math.cos(rad) - py * Math.sin(rad);
+                 const ry = px * Math.sin(rad) + py * Math.cos(rad);
+                 
+                 vertices.push({ x: shape.x + rx, y: shape.y + ry });
+            }
+        }
     } else if (shape.type === 'circle') {
         // Center
         vertices.push({ x: shape.x, y: shape.y });
@@ -281,16 +317,17 @@ export function getShapeMidpoints(shape: Shape): Point[] {
                  y: (p1.y + p2.y) / 2
              });
         });
-    } else if (shape.type === 'segment' || shape.type === 'triangle') {
+    } else if (shape.type === 'segment' || shape.type === 'triangle' || shape.type === 'polygon') {
         const vertices = getShapeVertices(shape);
-        // For segment/triangle, vertices are ordered.
+        // For segment/triangle/polygon, vertices are ordered.
         // Segment: 2 points -> 1 midpoint
         // Triangle: 3 points -> 3 segments (closed)
+        // Polygon: 6 points -> 6 segments (closed)
         
         const numPoints = vertices.length;
         if (numPoints < 2) return midpoints;
 
-        const isClosed = shape.type === 'triangle'; // Triangle is closed, segment is open
+        const isClosed = shape.type === 'triangle' || shape.type === 'polygon'; // Triangle/Polygon are closed, segment is open
         
         const limit = isClosed ? numPoints : numPoints - 1;
         
