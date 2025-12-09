@@ -39,6 +39,7 @@ export interface Shape {
   stroke: string;
   fill?: string;
   rotation: number;
+  showCircumcenter?: boolean;
 }
 
 export type ToolType = 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim' | 'point' | 'zoom';

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Line, Transformer, Circle } from 'react-konva';
 import type { Shape } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
@@ -43,9 +43,6 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
   // Stroke width that maintains consistent visual appearance regardless of zoom
   const strokeWidth = 1 / viewportScale;
 
-  // Calculate circumcenter for the triangle
-  const circumcenter = useMemo(() => getCircumcenter(shape), [shape]);
-
   // Update attached segments during drag
   const updateAttachedSegmentsDuringDrag = useCallback((currentX: number, currentY: number) => {
     // Create a temporary shape object with the current drag position
@@ -85,6 +82,8 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
   if (!shape.points || shape.points.length < 6) {
     return null;
   }
+
+  const circumcenter = shape.showCircumcenter ? getCircumcenter(shape) : null;
 
   return (
     <>
@@ -136,6 +135,27 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
         }}
         ref={shapeRef}
       />
+      {circumcenter && (
+        <>
+          <Circle
+            x={circumcenter.center.x}
+            y={circumcenter.center.y}
+            radius={circumcenter.radius}
+            stroke="#ef4444"
+            strokeWidth={1 / viewportScale}
+            dash={[4 / viewportScale, 4 / viewportScale]}
+            listening={false}
+            opacity={0.6}
+          />
+          <Circle
+            x={circumcenter.center.x}
+            y={circumcenter.center.y}
+            radius={3 / viewportScale}
+            fill="#ef4444"
+            listening={false}
+          />
+        </>
+      )}
       {isSelected && tool === 'select' && vertexEditMode && shape.points && !isDraggingShape && !isAltPressed && (
         Array.from({ length: shape.points.length / 2 }).map((_, i) => {
           const { x: absX, y: absY } = calculateVertexPos(shape, i);
@@ -164,31 +184,6 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
             />
           );
         })
-      )}
-      {/* Circumcenter visualization - shown when triangle is selected */}
-      {isSelected && circumcenter && (
-        <>
-          {/* Circumscribed circle (dashed) */}
-          <Circle
-            x={circumcenter.center.x}
-            y={circumcenter.center.y}
-            radius={circumcenter.radius}
-            stroke="#f59e0b"
-            strokeWidth={strokeWidth}
-            dash={[6 / viewportScale, 4 / viewportScale]}
-            listening={false}
-          />
-          {/* Circumcenter point */}
-          <Circle
-            x={circumcenter.center.x}
-            y={circumcenter.center.y}
-            radius={4 / viewportScale}
-            fill="#f59e0b"
-            stroke="#d97706"
-            strokeWidth={strokeWidth}
-            listening={false}
-          />
-        </>
       )}
       {isSelected && tool === 'select' && !vertexEditMode && (
         <Transformer
