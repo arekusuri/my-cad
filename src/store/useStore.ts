@@ -3,6 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 
 export type ShapeType = 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon';
 
+export interface AttachedPoint {
+  id: string;
+  shapeId: string;
+  /** 'vertex' for shape vertices, 'midpoint' for edge midpoints */
+  attachType: 'vertex' | 'midpoint';
+  /** Index of the vertex or edge (for midpoint, it's the edge between vertex[index] and vertex[index+1]) */
+  index: number;
+}
+
 export interface Shape {
   id: string;
   type: ShapeType;
@@ -17,28 +26,34 @@ export interface Shape {
   rotation: number;
 }
 
+export type ToolType = 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim' | 'point';
+
 interface StoreState {
   shapes: Shape[];
+  attachedPoints: AttachedPoint[];
   selectedIds: string[];
   selectedVertexIndices: Record<string, number[]>; // shapeId -> array of vertex indices
   vertexEditMode: boolean;
-  tool: 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim';
+  tool: ToolType;
   isShiftPressed: boolean;
   isAltPressed: boolean;
   
-  setTool: (tool: 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim') => void;
+  setTool: (tool: ToolType) => void;
   setVertexEditMode: (enabled: boolean) => void;
   addShape: (shape: Omit<Shape, 'id'>) => void;
   updateShape: (id: string, attrs: Partial<Shape>) => void;
   selectShape: (id: string | string[] | null) => void;
   selectVertices: (indices: Record<string, number[]>) => void;
   deleteShape: (id: string) => void;
+  addAttachedPoint: (point: Omit<AttachedPoint, 'id'>) => void;
+  removeAttachedPoint: (id: string) => void;
   setShiftPressed: (pressed: boolean) => void;
   setAltPressed: (pressed: boolean) => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
   shapes: [],
+  attachedPoints: [],
   selectedIds: [],
   selectedVertexIndices: {},
   vertexEditMode: false,
@@ -63,7 +78,15 @@ export const useStore = create<StoreState>((set) => ({
   deleteShape: (id) => set((state) => ({
     shapes: state.shapes.filter((s) => s.id !== id),
     selectedIds: state.selectedIds.filter((sid) => sid !== id),
-    selectedVertexIndices: { ...state.selectedVertexIndices, [id]: [] }
+    selectedVertexIndices: { ...state.selectedVertexIndices, [id]: [] },
+    // Also remove attached points for this shape
+    attachedPoints: state.attachedPoints.filter((p) => p.shapeId !== id),
+  })),
+  addAttachedPoint: (point) => set((state) => ({
+    attachedPoints: [...state.attachedPoints, { ...point, id: uuidv4() }]
+  })),
+  removeAttachedPoint: (id) => set((state) => ({
+    attachedPoints: state.attachedPoints.filter((p) => p.id !== id)
   })),
   setShiftPressed: (pressed) => set({ isShiftPressed: pressed }),
   setAltPressed: (pressed) => set({ isAltPressed: pressed }),

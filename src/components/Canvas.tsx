@@ -1,18 +1,19 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Stage, Layer, Line, Rect } from 'react-konva';
-import { useStore, type Shape } from '../store/useStore';
+import { Stage, Layer, Line, Rect, Circle as KonvaCircle } from 'react-konva';
+import { useStore, type Shape, type AttachedPoint } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
 import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIntersectRect, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
 import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
 import { constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
 import { useDrawingTools } from './tools/useDrawingTools';
-import { TrianglePreview } from './shapes/triangle/TrianglePreview';
+import { TrianglePreview, getTriangleAttachedPoints, hasTriangleAttachedPointAt } from './shapes/triangle';
+import { getPolygonAttachedPoints, hasPolygonAttachedPointAt } from './shapes/polygon';
 
 const GRID_SIZE = 20;
 
 export const Canvas: React.FC = () => {
-  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices } = useStore();
+  const { shapes, selectedIds, tool, addShape, updateShape, selectShape, deleteShape, selectVertices, attachedPoints, addAttachedPoint } = useStore();
   const isShiftPressed = useStore((state) => state.isShiftPressed);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [hoveredSnapPoint, setHoveredSnapPoint] = useState<SnapPoint | null>(null);
@@ -95,6 +96,35 @@ export const Canvas: React.FC = () => {
     // Only allow left click for drawing/selecting
     if (e.evt.button !== 0) return;
 
+    // Get position
+    const stage = e.target.getStage();
+    const pos = stage?.getPointerPosition();
+    if (!pos) return;
+
+    // Handle point tool - add attached point on snap points
+    if (tool === 'point') {
+        const snapPoint = findClosestSnapPoint(pos, shapes);
+        if (snapPoint) {
+            const targetShape = shapes.find(s => s.id === snapPoint.shapeId);
+            // Only allow attaching to triangles and polygons
+            if (targetShape && (targetShape.type === 'triangle' || targetShape.type === 'polygon')) {
+                // Check if point already exists at this location
+                const hasExisting = targetShape.type === 'triangle'
+                    ? hasTriangleAttachedPointAt(snapPoint.shapeId, snapPoint.type, snapPoint.index, attachedPoints)
+                    : hasPolygonAttachedPointAt(snapPoint.shapeId, snapPoint.type, snapPoint.index, attachedPoints);
+                
+                if (!hasExisting) {
+                    addAttachedPoint({
+                        shapeId: snapPoint.shapeId,
+                        attachType: snapPoint.type,
+                        index: snapPoint.index,
+                    });
+                }
+            }
+        }
+        return;
+    }
+
     // Check if we are clicking a highlighted vertex to drag (but not in Alt mode - Alt is for snapping only)
     if (tool === 'select' && hoveredSnapPoint && hoveredSnapPoint.type === 'vertex' && !e.evt.altKey) {
         startDrag(hoveredSnapPoint, shapes);
@@ -108,8 +138,6 @@ export const Canvas: React.FC = () => {
       selectShape(null);
       
       if (tool === 'select') {
-        const stage = e.target.getStage();
-        const pos = stage?.getPointerPosition();
         if (pos) {
             setSelectionBox({
                 startX: pos.x,
@@ -120,11 +148,6 @@ export const Canvas: React.FC = () => {
         }
       }
     }
-
-    // Get position for drawing tools
-    const stage = e.target.getStage();
-    const pos = stage?.getPointerPosition();
-    if (!pos) return;
 
     // Delegate to drawing tools (all shapes including triangle)
     const drawingEvent = {
@@ -214,7 +237,8 @@ export const Canvas: React.FC = () => {
     const isSnappingEnabled = e.evt.altKey;
 
     // Snap Point Highlight - show during select mode or while drawing with Alt key
-    if (isSnappingEnabled) {
+    // Also always show during point tool mode
+    if (isSnappingEnabled || tool === 'point') {
         const closest = findClosestSnapPoint(pos, shapes);
         setHoveredSnapPoint(closest);
     } else {
@@ -488,6 +512,25 @@ export const Canvas: React.FC = () => {
   // Get triangle preview data
   const trianglePreview = drawingTools.getTrianglePreview();
 
+  // Calculate all attached point positions for rendering
+  const getAttachedPointsToRender = useCallback(() => {
+    const pointsToRender: Array<{ point: AttachedPoint; position: Point }> = [];
+    
+    shapes.forEach(shape => {
+      if (shape.type === 'triangle') {
+        const trianglePoints = getTriangleAttachedPoints(shape, attachedPoints);
+        pointsToRender.push(...trianglePoints);
+      } else if (shape.type === 'polygon') {
+        const polygonPoints = getPolygonAttachedPoints(shape, attachedPoints);
+        pointsToRender.push(...polygonPoints);
+      }
+    });
+    
+    return pointsToRender;
+  }, [shapes, attachedPoints]);
+  
+  const attachedPointsToRender = getAttachedPointsToRender();
+
   return (
     <Stage
       width={window.innerWidth}
@@ -497,7 +540,7 @@ export const Canvas: React.FC = () => {
       onMouseUp={handleMouseUp}
       onContextMenu={handleContextMenu}
       onDblClick={handleDblClick}
-      className={`bg-gray-50 ${tool === 'select' ? 'cursor-pointer' : tool === 'trim' || tool === 'eraser' ? 'cursor-cell' : 'cursor-crosshair'}`}
+      className={`bg-gray-50 ${tool === 'select' ? 'cursor-pointer' : tool === 'trim' || tool === 'eraser' ? 'cursor-cell' : tool === 'point' ? 'cursor-pointer' : 'cursor-crosshair'}`}
     >
       <Layer>
         {renderGrid()}
@@ -560,6 +603,19 @@ export const Canvas: React.FC = () => {
         <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} />
         {/* Triangle tool preview */}
         <TrianglePreview drawState={trianglePreview.drawState} previewPoint={trianglePreview.previewPoint} />
+        {/* Render attached points */}
+        {attachedPointsToRender.map(({ point, position }) => (
+          <KonvaCircle
+            key={point.id}
+            x={position.x}
+            y={position.y}
+            radius={5}
+            fill="black"
+            stroke="black"
+            strokeWidth={1}
+            listening={false}
+          />
+        ))}
       </Layer>
     </Stage>
   );
