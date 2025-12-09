@@ -1,27 +1,96 @@
-import React from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Circle as KonvaCircle, RegularPolygon } from 'react-konva';
-import { useStore, type Shape } from '../../store/useStore';
-import { getShapeVertices, getShapeMidpoints, type Point } from '../../utils/geometry';
+import { type Shape } from '../../store/useStore';
+import { getShapeVertices, getShapeMidpoints } from '../../utils/geometry';
 import { constrainLineToOrtho } from './OrthoMode';
+
+export interface DraggingVertex {
+    shapeId: string;
+    index: number;
+    startX: number;
+    startY: number;
+}
+
+/**
+ * Hook to manage vertex dragging with Escape key cancellation.
+ * Stores original shape state and restores it if Escape is pressed.
+ */
+export const useVertexDrag = (
+    updateShape: (id: string, attrs: Partial<Shape>) => void
+) => {
+    const [draggingVertex, setDraggingVertex] = useState<DraggingVertex | null>(null);
+    const originalShapeRef = useRef<Shape | null>(null);
+
+    // Handle Escape key to cancel drag and restore shape
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && draggingVertex && originalShapeRef.current) {
+                updateShape(originalShapeRef.current.id, originalShapeRef.current);
+                setDraggingVertex(null);
+                originalShapeRef.current = null;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [draggingVertex, updateShape]);
+
+    const startDrag = useCallback((snapPoint: SnapPoint, shapes: Shape[]) => {
+        const shapeToStore = shapes.find(s => s.id === snapPoint.shapeId);
+        if (shapeToStore) {
+            originalShapeRef.current = { ...shapeToStore };
+        }
+        setDraggingVertex({
+            shapeId: snapPoint.shapeId,
+            index: snapPoint.index,
+            startX: snapPoint.x,
+            startY: snapPoint.y,
+        });
+    }, []);
+
+    const endDrag = useCallback(() => {
+        setDraggingVertex(null);
+        originalShapeRef.current = null;
+    }, []);
+
+    const cancelDrag = useCallback(() => {
+        if (draggingVertex && originalShapeRef.current) {
+            updateShape(originalShapeRef.current.id, originalShapeRef.current);
+        }
+        setDraggingVertex(null);
+        originalShapeRef.current = null;
+    }, [draggingVertex, updateShape]);
+
+    return {
+        draggingVertex,
+        startDrag,
+        endDrag,
+        cancelDrag,
+    };
+};
 
 export interface SnapPoint {
     shapeId: string;
-    index: number; // For vertices, this is index into vertices array. For midpoints, index into midpoints array
+    index: number;
     x: number;
     y: number;
     type: 'vertex' | 'midpoint';
 }
 
-interface SelectModeProps {
+interface SnapPointHighlightProps {
     hoveredSnapPoint: SnapPoint | null;
 }
 
-export const SelectModeVertexHighlight: React.FC<SelectModeProps> = ({ hoveredSnapPoint }) => {
+/**
+ * Visual highlight for snap points (vertices and midpoints).
+ * Shows a red circle for vertices, blue triangle for midpoints.
+ */
+export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredSnapPoint }) => {
     if (!hoveredSnapPoint) return null;
     
     if (hoveredSnapPoint.type === 'midpoint') {
         return (
-             <RegularPolygon
+            <RegularPolygon
                 x={hoveredSnapPoint.x}
                 y={hoveredSnapPoint.y}
                 sides={3}
@@ -31,7 +100,7 @@ export const SelectModeVertexHighlight: React.FC<SelectModeProps> = ({ hoveredSn
                 fill="transparent"
                 listening={false}
                 rotation={0}
-             />
+            />
         );
     }
 
@@ -47,6 +116,7 @@ export const SelectModeVertexHighlight: React.FC<SelectModeProps> = ({ hoveredSn
         />
     );
 };
+
 
 // Helper logic for vertex/midpoint finding/snapping
 export const findClosestSnapPoint = (
@@ -156,7 +226,7 @@ export const handleVertexDrag = (
             updateShape(shape.id, { radius: newRadius });
         }
     } else if (shape.type === 'triangle') {
-        let points = shape.points ? [...shape.points] : [];
+        const points = shape.points ? [...shape.points] : [];
                  
         if (points.length === 0 && shape.radius) {
             // Initialize points from regular polygon geometry
@@ -188,7 +258,7 @@ export const handleVertexDrag = (
         }
     } else if (shape.type === 'polygon') {
         const POLYGON_SIDES = 6;
-        let points = shape.points ? [...shape.points] : [];
+        const points = shape.points ? [...shape.points] : [];
                  
         if (points.length === 0 && shape.radius) {
             // Initialize points from regular polygon geometry (hexagon)
@@ -219,4 +289,3 @@ export const handleVertexDrag = (
         }
     }
 };
-

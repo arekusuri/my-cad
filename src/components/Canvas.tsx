@@ -4,7 +4,7 @@ import { useStore, type Shape } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
 import { getLineIntersection, distance, getRectLines, isShapeInRect, doesShapeIntersectRect, getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
-import { SelectModeVertexHighlight, findClosestSnapPoint, handleVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
+import { SnapPointHighlight, findClosestSnapPoint, handleVertexDrag, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
 import { constrainToSquare, constrainLineToOrtho, constrainToAxis } from './modes/OrthoMode';
 
 const GRID_SIZE = 20;
@@ -22,7 +22,9 @@ export const Canvas: React.FC = () => {
   const drawingShapeId = useRef<string | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [hoveredSnapPoint, setHoveredSnapPoint] = useState<SnapPoint | null>(null);
-  const [draggingVertex, setDraggingVertex] = useState<{ shapeId: string; index: number; startX: number; startY: number } | null>(null);
+  
+  // Vertex drag with Escape cancellation (encapsulated in AutoSnappingMode)
+  const { draggingVertex, startDrag, endDrag } = useVertexDrag(updateShape);
   
   // Triangle tool multi-click state
   const [triangleDrawState, setTriangleDrawState] = useState<TriangleDrawState | null>(null);
@@ -111,12 +113,7 @@ export const Canvas: React.FC = () => {
 
     // Check if we are clicking a highlighted vertex to drag
     if (tool === 'select' && hoveredSnapPoint && hoveredSnapPoint.type === 'vertex') {
-        setDraggingVertex({ 
-            shapeId: hoveredSnapPoint.shapeId, 
-            index: hoveredSnapPoint.index,
-            startX: hoveredSnapPoint.x,
-            startY: hoveredSnapPoint.y
-        });
+        startDrag(hoveredSnapPoint, shapes);
         return;
     }
 
@@ -469,7 +466,7 @@ export const Canvas: React.FC = () => {
   };
 
   const handleMouseUp = () => {
-    setDraggingVertex(null); // Stop dragging vertex
+    endDrag(); // Stop dragging vertex (clears saved shape)
 
     if (isDrawing && drawingShapeId.current) {
         const shape = useStore.getState().shapes.find(s => s.id === drawingShapeId.current);
@@ -802,7 +799,7 @@ export const Canvas: React.FC = () => {
             </>
           );
         })()}
-        <SelectModeVertexHighlight hoveredSnapPoint={hoveredSnapPoint} />
+        <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} />
         {/* Triangle tool preview */}
         {tool === 'triangle' && triangleDrawState && trianglePreviewPoint && (
           <>
