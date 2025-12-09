@@ -8,7 +8,7 @@ import { getShapeVertices, getShapeMidpoints } from '../../../utils/geometry';
  */
 export function getAttachmentPosition(
     shape: Shape,
-    attachType: 'vertex' | 'midpoint',
+    attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter',
     index: number
 ): Point | null {
     if (shape.type !== 'polygon') return null;
@@ -24,6 +24,7 @@ export function getAttachmentPosition(
             return midpoints[index];
         }
     }
+    // Note: Polygons don't have circumcenter/incenter/centroid/orthocenter by default
     
     return null;
 }
@@ -67,7 +68,7 @@ export function getPolygonAttachedPoints(
  */
 export function hasAttachedPointAt(
     shapeId: string,
-    attachType: 'vertex' | 'midpoint' | 'circumcenter',
+    attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter',
     index: number,
     attachedPoints: AttachedPoint[]
 ): boolean {

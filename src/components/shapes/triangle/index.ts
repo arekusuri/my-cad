@@ -10,4 +10,8 @@ export {
     getSegmentAttachmentsToTriangle,
     updateAttachedSegments as updateTriangleAttachedSegments,
 } from './TriangleAttachment';
+export { 
+    getTriangleSpecialSnapPoints, 
+    registerTriangleSpecialSnapPoints 
+} from './TriangleSnapPoints';
 

@@ -9,7 +9,7 @@ import { getCircumcenterPoint } from './TriangleCircumcenter';
  */
 export function getAttachmentPosition(
     shape: Shape,
-    attachType: 'vertex' | 'midpoint' | 'circumcenter',
+    attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter',
     index: number
 ): Point | null {
     if (shape.type !== 'triangle') return null;
@@ -27,6 +27,7 @@ export function getAttachmentPosition(
     } else if (attachType === 'circumcenter') {
         return getCircumcenterPoint(shape);
     }
+    // Future: handle incenter, centroid, orthocenter here
     
     return null;
 }
@@ -70,7 +71,7 @@ export function getTriangleAttachedPoints(
  */
 export function hasAttachedPointAt(
     shapeId: string,
-    attachType: 'vertex' | 'midpoint' | 'circumcenter',
+    attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter',
     index: number,
     attachedPoints: AttachedPoint[]
 ): boolean {

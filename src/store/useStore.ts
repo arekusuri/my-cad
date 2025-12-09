@@ -6,8 +6,8 @@ export type ShapeType = 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon';
 export interface AttachedPoint {
   id: string;
   shapeId: string;
-  /** 'vertex' for shape vertices, 'midpoint' for edge midpoints, 'circumcenter' for triangle circumcenter */
-  attachType: 'vertex' | 'midpoint' | 'circumcenter';
+  /** Type of attachment point: vertex, midpoint, or special shape points like circumcenter */
+  attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter';
   /** Index of the vertex or edge (for midpoint, it's the edge between vertex[index] and vertex[index+1]) */
   index: number;
 }
@@ -22,7 +22,7 @@ export interface SegmentAttachment {
   /** The shape this endpoint is attached to */
   targetShapeId: string;
   /** Type of attachment point */
-  attachType: 'vertex' | 'midpoint' | 'circumcenter';
+  attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter';
   /** Index of the vertex or midpoint on target shape */
   targetIndex: number;
 }

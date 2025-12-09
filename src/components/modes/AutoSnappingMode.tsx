@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Circle as KonvaCircle, RegularPolygon } from 'react-konva';
 import { type Shape } from '../../store/useStore';
 import { getShapeVertices, getShapeMidpoints } from '../../utils/geometry';
+import { getShapeSpecialSnapPoints } from '../../utils/shapeSnapPoints';
 import { constrainLineToOrtho } from './OrthoMode';
-import { getCircumcenterPoint } from '../shapes/triangle/TriangleCircumcenter';
 
 export interface DraggingVertex {
     shapeId: string;
@@ -75,7 +75,7 @@ export interface SnapPoint {
     index: number;
     x: number;
     y: number;
-    type: 'vertex' | 'midpoint' | 'circumcenter';
+    type: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter';
 }
 
 interface SnapPointHighlightProps {
@@ -108,7 +108,11 @@ export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredS
         );
     }
     
-    if (hoveredSnapPoint.type === 'circumcenter') {
+    // Special snap points (circumcenter, incenter, centroid, orthocenter) - purple circle
+    if (hoveredSnapPoint.type === 'circumcenter' || 
+        hoveredSnapPoint.type === 'incenter' || 
+        hoveredSnapPoint.type === 'centroid' || 
+        hoveredSnapPoint.type === 'orthocenter') {
         return (
             <KonvaCircle
                 x={hoveredSnapPoint.x}
@@ -122,6 +126,7 @@ export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredS
         );
     }
 
+    // Default: vertex - red circle
     return (
         <KonvaCircle
             x={hoveredSnapPoint.x}
@@ -166,17 +171,15 @@ export const findClosestSnapPoint = (
             }
         });
 
-        // Check circumcenter (if enabled)
-        if (shape.type === 'triangle' && shape.showCircumcenter) {
-            const circumcenter = getCircumcenterPoint(shape);
-            if (circumcenter) {
-                const d = Math.sqrt(Math.pow(circumcenter.x - pos.x, 2) + Math.pow(circumcenter.y - pos.y, 2));
-                if (d < minDist) {
-                    minDist = d;
-                    closest = { shapeId: shape.id, index: 0, x: circumcenter.x, y: circumcenter.y, type: 'circumcenter' };
-                }
+        // Check special snap points (circumcenter, etc.) via shape-specific providers
+        const specialPoints = getShapeSpecialSnapPoints(shape);
+        specialPoints.forEach(sp => {
+            const d = Math.sqrt(Math.pow(sp.point.x - pos.x, 2) + Math.pow(sp.point.y - pos.y, 2));
+            if (d < minDist) {
+                minDist = d;
+                closest = { shapeId: shape.id, index: sp.index, x: sp.point.x, y: sp.point.y, type: sp.type };
             }
-        }
+        });
     });
     return closest;
 };

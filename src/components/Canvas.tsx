@@ -4,18 +4,23 @@ import { useStore, type Shape, type AttachedPoint } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
 import { getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
+import { getShapeSpecialSnapPoints } from '../utils/shapeSnapPoints';
+import { registerAllShapeSnapPoints } from '../utils/shapeSnapPointsSetup';
 import { SnapPointHighlight, findClosestSnapPoint, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
 import { OrthoAxesOverlay } from './modes/OrthoMode.tsx';
 import { useZoomMode, ZoomBoxOverlay } from './modes/ZoomMode';
 import { useSelectionMode, SelectionBoxOverlay } from './modes/SelectionMode';
 import { useDrawingTools } from './tools/useDrawingTools';
 import type { SnapPointInfo } from './tools/DrawingTool';
-import { TrianglePreview, getTriangleAttachedPoints, hasTriangleAttachedPointAt, updateTriangleAttachedSegments } from './shapes/triangle';
-import { getCircumcenterPoint } from './shapes/triangle/TriangleCircumcenter';
-import { getPolygonAttachedPoints, hasPolygonAttachedPointAt, updatePolygonAttachedSegments } from './shapes/polygon';
+import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments } from './shapes/triangle';
+import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './shapes/polygon';
 import { Grid } from './Grid';
 import { handleTrim } from './tools/Trim';
 import { handleDraggingVertex } from './tools/SelectTool';
+import { handlePointTool } from './tools/PointTool';
+
+// Register all shape special snap point providers
+registerAllShapeSnapPoints();
 
 const GRID_SIZE = 20;
 
@@ -78,17 +83,15 @@ export const Canvas: React.FC = () => {
               }
           });
 
-          // Check circumcenter
-          if (shape.type === 'triangle' && shape.showCircumcenter) {
-              const circumcenter = getCircumcenterPoint(shape);
-              if (circumcenter) {
-                  const d = Math.sqrt(Math.pow(circumcenter.x - x, 2) + Math.pow(circumcenter.y - y, 2));
-                  if (d < minDist) {
-                      minDist = d;
-                      closestPoint = circumcenter;
-                  }
+          // Check special snap points (circumcenter, etc.) via shape-specific providers
+          const specialPoints = getShapeSpecialSnapPoints(shape);
+          specialPoints.forEach(sp => {
+              const d = Math.sqrt(Math.pow(sp.point.x - x, 2) + Math.pow(sp.point.y - y, 2));
+              if (d < minDist) {
+                  minDist = d;
+                  closestPoint = sp.point;
               }
-          }
+          });
       });
 
       return closestPoint;
@@ -121,17 +124,15 @@ export const Canvas: React.FC = () => {
               }
           });
 
-          // Check circumcenter
-          if (shape.type === 'triangle' && shape.showCircumcenter) {
-              const circumcenter = getCircumcenterPoint(shape);
-              if (circumcenter) {
-                  const d = Math.sqrt(Math.pow(circumcenter.x - x, 2) + Math.pow(circumcenter.y - y, 2));
-                  if (d < minDist) {
-                      minDist = d;
-                      closest = { x: circumcenter.x, y: circumcenter.y, shapeId: shape.id, type: 'circumcenter', index: 0 };
-                  }
+          // Check special snap points (circumcenter, etc.) via shape-specific providers
+          const specialPoints = getShapeSpecialSnapPoints(shape);
+          specialPoints.forEach(sp => {
+              const d = Math.sqrt(Math.pow(sp.point.x - x, 2) + Math.pow(sp.point.y - y, 2));
+              if (d < minDist) {
+                  minDist = d;
+                  closest = { x: sp.point.x, y: sp.point.y, shapeId: shape.id, type: sp.type, index: sp.index };
               }
-          }
+          });
       });
 
       return closest;
@@ -226,25 +227,12 @@ export const Canvas: React.FC = () => {
 
     // Handle point tool - add attached point on snap points
     if (tool === 'point') {
-        const snapPoint = findClosestSnapPoint(pos, shapes);
-        if (snapPoint) {
-            const targetShape = shapes.find(s => s.id === snapPoint.shapeId);
-            // Only allow attaching to triangles and polygons
-            if (targetShape && (targetShape.type === 'triangle' || targetShape.type === 'polygon')) {
-                // Check if point already exists at this location
-                const hasExisting = targetShape.type === 'triangle'
-                    ? hasTriangleAttachedPointAt(snapPoint.shapeId, snapPoint.type, snapPoint.index, attachedPoints)
-                    : hasPolygonAttachedPointAt(snapPoint.shapeId, snapPoint.type, snapPoint.index, attachedPoints);
-                
-                if (!hasExisting) {
-                    addAttachedPoint({
-                        shapeId: snapPoint.shapeId,
-                        attachType: snapPoint.type,
-                        index: snapPoint.index,
-                    });
-                }
-            }
-        }
+        handlePointTool({
+            pos,
+            shapes,
+            attachedPoints,
+            addAttachedPoint
+        });
         return;
     }
 
