@@ -8,6 +8,7 @@ import { calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from '
 import { setCursor } from '../cursor';
 import { updateAttachedSegments } from './TriangleAttachment';
 import { getCircumcenter } from './TriangleCircumcenter';
+import { getOrthocenter } from './TrianglePerpendicularFoot';
 
 interface TriangleShapeProps {
   shape: Shape;
@@ -89,6 +90,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
     ? { ...shape, x: dragPosition.x, y: dragPosition.y }
     : shape;
   const circumcenter = currentShape.showCircumcenter ? getCircumcenter(currentShape) : null;
+  const orthocenter = currentShape.showOrthocenter ? getOrthocenter(currentShape) : null;
 
   return (
     <>
@@ -164,6 +166,15 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
             listening={false}
           />
         </>
+      )}
+      {orthocenter && (
+        <Circle
+          x={orthocenter.x}
+          y={orthocenter.y}
+          radius={3 / viewportScale}
+          fill="#8b5cf6"
+          listening={false}
+        />
       )}
       {isSelected && tool === 'select' && vertexEditMode && shape.points && !isDraggingShape && !isAltPressed && (
         Array.from({ length: shape.points.length / 2 }).map((_, i) => {

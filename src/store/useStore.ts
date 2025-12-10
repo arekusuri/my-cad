@@ -42,6 +42,7 @@ export interface Shape {
   fill?: string;
   rotation: number;
   showCircumcenter?: boolean;
+  showOrthocenter?: boolean;
   lineType?: LineType;
 }
 

@@ -23,7 +23,20 @@ export const TriangleProperties: React.FC<TrianglePropertiesProps> = ({ shape, u
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
         <label htmlFor="showCircumcenter" className="text-sm font-medium text-gray-700 select-none cursor-pointer">
-          Show Circumcenter
+          Show Circumcenter (外心)
+        </label>
+      </div>
+      
+      <div className="flex items-center gap-2 px-1">
+        <input
+          type="checkbox"
+          id="showOrthocenter"
+          checked={!!shape.showOrthocenter}
+          onChange={(e) => updateShape(shape.id, { showOrthocenter: e.target.checked })}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+        <label htmlFor="showOrthocenter" className="text-sm font-medium text-gray-700 select-none cursor-pointer">
+          Show Orthocenter (垂心)
         </label>
       </div>
     </div>
