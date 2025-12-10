@@ -41,7 +41,7 @@ export const handleTrim = (
                 p1: { x: other.x + (other.points?.[0] || 0), y: other.y + (other.points?.[1] || 0) },
                 p2: { x: other.x + (other.points?.[2] || 0), y: other.y + (other.points?.[3] || 0) }
             });
-        } else if (other.type === 'rect') {
+        } else if (other.type === 'rectangle') {
            // Convert rect to 4 lines
            const rectLines = getRectLines(other.x, other.y, other.width || 0, other.height || 0, other.rotation);
            rectLines.forEach(l => {

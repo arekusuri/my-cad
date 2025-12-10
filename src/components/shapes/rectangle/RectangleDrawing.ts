@@ -6,12 +6,12 @@ import { constrainToSquare } from '../../modes/OrthoMode';
  * Rectangle drawing tool
  * Click and drag to create a rectangle - corner at click point, size by drag
  */
-export class RectDrawing extends DragDrawingTool {
-    readonly name = 'rect';
+export class RectangleDrawing extends DragDrawingTool {
+    readonly name = 'rectangle';
     
     protected createInitialShape(x: number, y: number): Omit<Shape, 'id'> {
         return {
-            type: 'rect',
+            type: 'rectangle',
             x,
             y,
             width: 0,

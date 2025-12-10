@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
-import { RectProperties } from './shapes/rect/RectProperties';
+import { RectangleProperties } from './shapes/rectangle/RectangleProperties';
 import { CircleProperties } from './shapes/circle/CircleProperties';
 import { SegmentProperties } from './shapes/segment/SegmentProperties';
 import { TriangleProperties } from './shapes/triangle/TriangleProperties';
@@ -58,8 +58,8 @@ export const Properties: React.FC = () => {
     // or just render the content below our common header
     const content = (() => {
         switch (selectedShape.type) {
-            case 'rect':
-                return <RectProperties shape={selectedShape} updateShape={updateShape} deleteShape={deleteShape} />;
+            case 'rectangle':
+                return <RectangleProperties shape={selectedShape} updateShape={updateShape} deleteShape={deleteShape} />;
             case 'circle':
                 return <CircleProperties shape={selectedShape} updateShape={updateShape} deleteShape={deleteShape} />;
             case 'segment':

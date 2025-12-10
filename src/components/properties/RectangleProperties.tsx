@@ -1,12 +1,12 @@
 import React from 'react';
 import type { Shape } from '../../store/useStore';
 
-interface RectPropertiesProps {
+interface RectanglePropertiesProps {
   shape: Shape;
   onUpdate: (attrs: Partial<Shape>) => void;
 }
 
-export const RectProperties: React.FC<RectPropertiesProps> = ({ shape, onUpdate }) => {
+export const RectangleProperties: React.FC<RectanglePropertiesProps> = ({ shape, onUpdate }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     onUpdate({ [name]: Number(value) });

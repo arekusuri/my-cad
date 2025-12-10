@@ -1,7 +1,7 @@
 import type { Shape } from '../../../store/useStore';
 import Konva from 'konva';
 
-export const getRectTransformAttrs = (
+export const getRectangleTransformAttrs = (
   node: Konva.Rect,
   shape: Shape
 ): Partial<Shape> => {
@@ -21,7 +21,7 @@ export const getRectTransformAttrs = (
   };
 };
 
-export const getRectCornerPositions = (shape: Shape) => {
+export const getRectangleCornerPositions = (shape: Shape) => {
     const x = shape.x;
     const y = shape.y;
     const w = shape.width || 0;
@@ -40,14 +40,14 @@ export const getRectCornerPositions = (shape: Shape) => {
     return corners;
 };
 
-export const calculateRectFromDrag = (
+export const calculateRectangleFromDrag = (
     shape: Shape,
     cornerIndex: number,
     dragPos: { x: number, y: number }
 ): Partial<Shape> => {
     // 1. Find fixed corner index (opposite)
     const fixedIndex = (cornerIndex + 2) % 4;
-    const currentCorners = getRectCornerPositions(shape);
+    const currentCorners = getRectangleCornerPositions(shape);
     const fixedPoint = currentCorners[fixedIndex];
 
     // 2. Rotate DragPos around FixedPoint by -rotation

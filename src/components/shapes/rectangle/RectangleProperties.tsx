@@ -2,13 +2,13 @@ import React from 'react';
 import type { Shape } from '../../../store/useStore';
 import { CommonProperties } from '../CommonProperties';
 
-interface RectPropertiesProps {
+interface RectanglePropertiesProps {
   shape: Shape;
   updateShape: (id: string, attrs: Partial<Shape>) => void;
   deleteShape: (id: string) => void;
 }
 
-export const RectProperties: React.FC<RectPropertiesProps> = ({ shape, updateShape, deleteShape }) => {
+export const RectangleProperties: React.FC<RectanglePropertiesProps> = ({ shape, updateShape, deleteShape }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     updateShape(shape.id, { [name]: Number(value) });
@@ -43,3 +43,4 @@ export const RectProperties: React.FC<RectPropertiesProps> = ({ shape, updateSha
     </div>
   );
 };
+

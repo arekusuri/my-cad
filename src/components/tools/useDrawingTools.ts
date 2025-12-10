@@ -2,7 +2,7 @@ import { useRef, useMemo, useCallback, useSyncExternalStore } from 'react';
 import { useStore } from '../../store/useStore';
 import type { DrawingTool, DrawingContext, DrawingMouseEvent, SnapPointInfo } from './DrawingTool';
 import { CircleDrawing } from '../shapes/circle/CircleDrawing';
-import { RectDrawing } from '../shapes/rect/RectDrawing';
+import { RectangleDrawing } from '../shapes/rectangle/RectangleDrawing';
 import { SegmentDrawing, LineDrawing } from '../shapes/segment';
 import { PolygonDrawing } from '../shapes/polygon/PolygonDrawing';
 import { TriangleDrawing, type TriangleDrawState } from '../shapes/triangle/TriangleDrawing';
@@ -46,7 +46,7 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
     // Create tool instances (persistent across renders)
     const toolsRef = useRef<Record<string, DrawingTool>>({
         circle: new CircleDrawing(),
-        rect: new RectDrawing(),
+        rectangle: new RectangleDrawing(),
         segment: new SegmentDrawing(),
         line: new LineDrawing(),
         polygon: new PolygonDrawing(),

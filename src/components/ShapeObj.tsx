@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Shape } from '../store/useStore';
 import Konva from 'konva';
-import { RectShape } from './shapes/rect/RectShape';
+import { RectangleShape } from './shapes/rectangle/RectangleShape';
 import { CircleShape } from './shapes/circle/CircleShape';
 import { SegmentShape, LineShape } from './shapes/segment';
 import { TriangleShape } from './shapes/triangle/TriangleShape';
@@ -19,8 +19,8 @@ export const ShapeObj: React.FC<ShapeObjProps> = (props) => {
   const { shape } = props;
 
   switch (shape.type) {
-    case 'rect':
-      return <RectShape {...props} />;
+    case 'rectangle':
+      return <RectangleShape {...props} />;
     case 'circle':
       return <CircleShape {...props} />;
     case 'segment':

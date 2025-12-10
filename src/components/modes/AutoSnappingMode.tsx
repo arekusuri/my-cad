@@ -313,7 +313,7 @@ export const handleVertexDrag = (
             points[idx * 2 + 1] = relY;
             updateShape(shape.id, { points });
         }
-    } else if (shape.type === 'rect') {
+    } else if (shape.type === 'rectangle') {
         // Simple resize logic for unrotated rects
         if (shape.rotation === 0) {
             const idx = draggingVertex.index;

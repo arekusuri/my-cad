@@ -111,7 +111,7 @@ export function isShapeInRect(shape: Shape, rect: { x: number; y: number; width:
     // Helper to check if point is inside
     const contains = (x: number, y: number) => x >= minX && x <= maxX && y >= minY && y <= maxY;
 
-    if (shape.type === 'rect') {
+    if (shape.type === 'rectangle') {
         const corners = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation).map(line => line[0]);
         return corners.every(p => contains(p.x, p.y));
     } else if (shape.type === 'circle') {
@@ -148,7 +148,7 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
 
     const rectLines = getRectLines(rect.x, rect.y, rect.width, rect.height, 0); 
     
-     if (shape.type === 'rect') {
+     if (shape.type === 'rectangle') {
         const corners = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation).map(line => line[0]);
         if (corners.some(p => isPointInRect(p, rect))) return true;
 
@@ -209,7 +209,7 @@ export function doesShapeIntersectRect(shape: Shape, rect: { x: number; y: numbe
 export function getShapeVertices(shape: Shape): Point[] {
     const vertices: Point[] = [];
     
-    if (shape.type === 'rect') {
+    if (shape.type === 'rectangle') {
         const corners = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation).map(line => line[0]);
         vertices.push(...corners);
     } else if (shape.type === 'segment') {
@@ -316,7 +316,7 @@ export function getShapeVertices(shape: Shape): Point[] {
 export function getShapeEdges(shape: Shape): [Point, Point][] {
     const edges: [Point, Point][] = [];
     
-    if (shape.type === 'rect') {
+    if (shape.type === 'rectangle') {
         const lines = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation);
         lines.forEach(line => {
             edges.push([line[0], line[1]]);
@@ -380,7 +380,7 @@ export function findLineIntersections(
 export function getShapeMidpoints(shape: Shape): Point[] {
     const midpoints: Point[] = [];
     
-    if (shape.type === 'rect') {
+    if (shape.type === 'rectangle') {
         const lines = getRectLines(shape.x, shape.y, shape.width || 0, shape.height || 0, shape.rotation);
         lines.forEach(line => {
              const p1 = line[0];

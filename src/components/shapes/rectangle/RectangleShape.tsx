@@ -4,10 +4,10 @@ import type { Shape } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
 import Konva from 'konva';
 import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops';
-import { getRectTransformAttrs, getRectCornerPositions, calculateRectFromDrag } from './RectShape_ops';
+import { getRectangleTransformAttrs, getRectangleCornerPositions, calculateRectangleFromDrag } from './RectangleShape_ops';
 import { setCursor } from '../cursor';
 
-interface RectShapeProps {
+interface RectangleShapeProps {
   shape: Shape;
   isSelected: boolean;
   onSelect: () => void;
@@ -15,7 +15,7 @@ interface RectShapeProps {
   onTrim: (e: Konva.KonvaEventObject<MouseEvent> | Konva.KonvaEventObject<TouchEvent>) => void;
 }
 
-export const RectShape: React.FC<RectShapeProps> = ({
+export const RectangleShape: React.FC<RectangleShapeProps> = ({
   shape,
   isSelected,
   onSelect,
@@ -54,7 +54,7 @@ export const RectShape: React.FC<RectShapeProps> = ({
     }
   };
 
-  const corners = vertexEditMode ? getRectCornerPositions(shape) : [];
+  const corners = vertexEditMode ? getRectangleCornerPositions(shape) : [];
 
   const [isDraggingShape, setIsDraggingShape] = React.useState(false);
 
@@ -98,7 +98,7 @@ export const RectShape: React.FC<RectShapeProps> = ({
         onTransformEnd={() => {
           const node = shapeRef.current;
           if (!node) return;
-          const newAttrs = getRectTransformAttrs(node, shape);
+          const newAttrs = getRectangleTransformAttrs(node, shape);
           onChange(newAttrs);
         }}
         ref={shapeRef}
@@ -123,7 +123,7 @@ export const RectShape: React.FC<RectShapeProps> = ({
                 strokeWidth={strokeWidth}
                 draggable
                 onDragMove={(e) => {
-                     const newAttrs = calculateRectFromDrag(shape, i, { x: e.target.x(), y: e.target.y() });
+                     const newAttrs = calculateRectangleFromDrag(shape, i, { x: e.target.x(), y: e.target.y() });
                      onChange(newAttrs);
                 }}
              />

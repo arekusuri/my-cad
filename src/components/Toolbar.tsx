@@ -50,7 +50,7 @@ export const Toolbar: React.FC = () => {
 
   const tools: Array<{ name: ToolType; icon: typeof MousePointer2 }> = [
     { name: 'select', icon: MousePointer2 },
-    { name: 'rect', icon: Square },
+    { name: 'rectangle', icon: Square },
     { name: 'circle', icon: Circle },
     { name: 'triangle', icon: Triangle },
     { name: 'polygon', icon: Hexagon },
