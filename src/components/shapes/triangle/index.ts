@@ -24,4 +24,9 @@ export {
     calculatePerpendicularFoot,
     type PerpendicularFoot
 } from './TrianglePerpendicularFoot';
+export {
+    getCentroid,
+    calculateCentroid,
+    getMedians
+} from './TriangleCentroid';
 

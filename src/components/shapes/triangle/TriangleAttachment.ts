@@ -3,6 +3,7 @@ import type { Point } from '../../../utils/geometry';
 import { getShapeVertices, getShapeMidpoints } from '../../../utils/geometry';
 import { getCircumcenterPoint } from './TriangleCircumcenter';
 import { calculatePerpendicularFoot, getOrthocenter } from './TrianglePerpendicularFoot';
+import { getCentroid } from './TriangleCentroid';
 
 /**
  * Calculate the absolute position of an attachment point on a triangle.
@@ -35,6 +36,8 @@ export function getAttachmentPosition(
         return getCircumcenterPoint(shape);
     } else if (attachType === 'orthocenter') {
         return getOrthocenter(shape);
+    } else if (attachType === 'centroid') {
+        return getCentroid(shape);
     } else if (attachType === 'perpendicular') {
         // For perpendicular, index is the edge index (0, 1, 2)
         // Edge i goes from vertex[i] to vertex[(i+1)%3]
@@ -57,7 +60,7 @@ export function getAttachmentPosition(
             };
         }
     }
-    // Future: handle incenter, centroid here
+    // Future: handle incenter here
     
     return null;
 }

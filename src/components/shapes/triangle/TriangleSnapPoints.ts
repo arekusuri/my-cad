@@ -2,10 +2,11 @@ import type { Shape } from '../../../store/useStore';
 import { registerSpecialSnapPointsProvider, type SpecialSnapPoint } from '../../../utils/shapeSnapPoints';
 import { getCircumcenterPoint } from './TriangleCircumcenter';
 import { getOrthocenter } from './TrianglePerpendicularFoot';
+import { getCentroid } from './TriangleCentroid';
 
 /**
  * Get special snap points for a triangle shape.
- * Currently supports: circumcenter (when showCircumcenter is enabled), orthocenter (when showOrthocenter is enabled)
+ * Supports: circumcenter, orthocenter, centroid (when enabled)
  */
 export function getTriangleSpecialSnapPoints(shape: Shape): SpecialSnapPoint[] {
     const points: SpecialSnapPoint[] = [];
@@ -36,7 +37,19 @@ export function getTriangleSpecialSnapPoints(shape: Shape): SpecialSnapPoint[] {
         }
     }
     
-    // Future: Add incenter, centroid here
+    // Centroid (重心) - only when enabled
+    if (shape.showCentroid) {
+        const centroid = getCentroid(shape);
+        if (centroid) {
+            points.push({
+                point: centroid,
+                type: 'centroid',
+                index: 0
+            });
+        }
+    }
+    
+    // Future: Add incenter here
     
     return points;
 }

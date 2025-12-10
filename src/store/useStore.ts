@@ -43,6 +43,7 @@ export interface Shape {
   rotation: number;
   showCircumcenter?: boolean;
   showOrthocenter?: boolean;
+  showCentroid?: boolean;
   lineType?: LineType;
 }
 

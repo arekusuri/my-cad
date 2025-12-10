@@ -9,6 +9,7 @@ import { setCursor } from '../cursor';
 import { updateAttachedSegments } from './TriangleAttachment';
 import { getCircumcenter } from './TriangleCircumcenter';
 import { getOrthocenter } from './TrianglePerpendicularFoot';
+import { getCentroid } from './TriangleCentroid';
 
 interface TriangleShapeProps {
   shape: Shape;
@@ -91,6 +92,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
     : shape;
   const circumcenter = currentShape.showCircumcenter ? getCircumcenter(currentShape) : null;
   const orthocenter = currentShape.showOrthocenter ? getOrthocenter(currentShape) : null;
+  const centroid = currentShape.showCentroid ? getCentroid(currentShape) : null;
 
   return (
     <>
@@ -173,6 +175,15 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
           y={orthocenter.y}
           radius={3 / viewportScale}
           fill="#8b5cf6"
+          listening={false}
+        />
+      )}
+      {centroid && (
+        <Circle
+          x={centroid.x}
+          y={centroid.y}
+          radius={3 / viewportScale}
+          fill="#10b981"
           listening={false}
         />
       )}

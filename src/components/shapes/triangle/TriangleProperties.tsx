@@ -39,6 +39,19 @@ export const TriangleProperties: React.FC<TrianglePropertiesProps> = ({ shape, u
           Show Orthocenter (垂心)
         </label>
       </div>
+      
+      <div className="flex items-center gap-2 px-1">
+        <input
+          type="checkbox"
+          id="showCentroid"
+          checked={!!shape.showCentroid}
+          onChange={(e) => updateShape(shape.id, { showCentroid: e.target.checked })}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+        <label htmlFor="showCentroid" className="text-sm font-medium text-gray-700 select-none cursor-pointer">
+          Show Centroid (重心)
+        </label>
+      </div>
     </div>
   );
 };
