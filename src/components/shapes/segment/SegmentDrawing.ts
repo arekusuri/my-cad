@@ -49,8 +49,6 @@ export class SegmentDrawing implements DrawingTool {
         this.startX = x;
         this.startY = y;
         
-        console.log('[Segment] First point clicked:', { x, y });
-        
         // Create initial shape
         const shape: Omit<Shape, 'id'> = {
             type: 'segment',
@@ -127,14 +125,6 @@ export class SegmentDrawing implements DrawingTool {
         if (shape && this.isShapeTooSmall(shape)) {
             ctx.deleteShape(shape.id);
         } else if (shape) {
-            // Log second point position
-            const pt1 = { x: shape.x + (shape.points?.[0] ?? 0), y: shape.y + (shape.points?.[1] ?? 0) };
-            const pt2 = { x: shape.x + (shape.points?.[2] ?? 0), y: shape.y + (shape.points?.[3] ?? 0) };
-            console.log('[Segment] Second point confirmed:', {
-                point1: pt1,
-                point2: pt2,
-                endSnapInfo: this.endSnapInfo,
-            });
             // Create attachments for snapped endpoints
             if (this.startSnapInfo && this.isValidAttachmentTarget(this.startSnapInfo, shapes)) {
                 ctx.addSegmentAttachment({

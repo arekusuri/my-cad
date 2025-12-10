@@ -43,17 +43,9 @@ export function getAttachmentPosition(
         const edgeEnd = vertices[(index + 1) % 3];
         
         if (referencePoint) {
-            // Calculate perpendicular foot from reference point to edge
-            const { foot, isOnEdge } = calculatePerpendicularFoot(referencePoint, edgeStart, edgeEnd);
-            // Even if not on edge, return the foot (it will be clamped to edge ends)
-            if (!isOnEdge) {
-                // Clamp to edge endpoints
-                const t = Math.max(0, Math.min(1, getParametricT(referencePoint, edgeStart, edgeEnd)));
-                return {
-                    x: edgeStart.x + t * (edgeEnd.x - edgeStart.x),
-                    y: edgeStart.y + t * (edgeEnd.y - edgeStart.y)
-                };
-            }
+            // Calculate perpendicular foot from reference point to edge (or its extension)
+            const { foot } = calculatePerpendicularFoot(referencePoint, edgeStart, edgeEnd);
+            // Return the actual foot, even if it's on the extension
             return foot;
         } else {
             // No reference point - return edge midpoint as fallback
@@ -77,6 +69,47 @@ function getParametricT(point: Point, lineStart: Point, lineEnd: Point): number 
     const lenSq = dx * dx + dy * dy;
     if (lenSq < 0.0001) return 0;
     return ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / lenSq;
+}
+
+/**
+ * Info about an edge extension line (when perpendicular foot is outside the edge)
+ */
+export interface EdgeExtensionInfo {
+    /** Start point of extension (edge endpoint) */
+    from: Point;
+    /** End point of extension (perpendicular foot) */
+    to: Point;
+}
+
+/**
+ * Get extension line info for a perpendicular attachment.
+ * Returns null if the foot is on the edge (no extension needed).
+ */
+export function getPerpendicularExtension(
+    triangle: Shape,
+    edgeIndex: number,
+    referencePoint: Point
+): EdgeExtensionInfo | null {
+    if (triangle.type !== 'triangle') return null;
+    
+    const vertices = getShapeVertices(triangle);
+    if (vertices.length !== 3 || edgeIndex < 0 || edgeIndex > 2) return null;
+    
+    const edgeStart = vertices[edgeIndex];
+    const edgeEnd = vertices[(edgeIndex + 1) % 3];
+    
+    const { foot, isOnEdge } = calculatePerpendicularFoot(referencePoint, edgeStart, edgeEnd);
+    
+    if (isOnEdge) return null;
+    
+    // Determine which endpoint to extend from
+    const t = getParametricT(referencePoint, edgeStart, edgeEnd);
+    const extensionFrom = t < 0 ? edgeStart : edgeEnd;
+    
+    return {
+        from: extensionFrom,
+        to: foot
+    };
 }
 
 /**
@@ -169,20 +202,9 @@ export function updateAttachedSegments(
                 x: segment.x + segment.points[otherEndpointIndex * 2],
                 y: segment.y + segment.points[otherEndpointIndex * 2 + 1]
             };
-            console.log('[updateAttachedSegments] Perpendicular calculation:', {
-                segmentId: segment.id,
-                endpoint: attachment.endpoint,
-                otherEndpointIndex,
-                referencePoint,
-                segmentX: segment.x,
-                segmentY: segment.y,
-                segmentPoints: segment.points,
-                targetIndex: attachment.targetIndex,
-            });
         }
         
         const targetPos = getAttachmentPosition(triangle, attachment.attachType, attachment.targetIndex, referencePoint);
-        console.log('[updateAttachedSegments] targetPos:', targetPos);
         if (!targetPos) continue;
         
         // Check how many attachments this segment has in total
@@ -207,17 +229,8 @@ export function updateAttachedSegments(
                 // Endpoint 1 attached: keep endpoint 0 fixed, update endpoint 1
                 const startX = segment.x;
                 const startY = segment.y;
-                const oldPt2 = { x: startX + segment.points[2], y: startY + segment.points[3] };
                 points[2] = targetPos.x - startX;
                 points[3] = targetPos.y - startY;
-                const newPt2 = { x: startX + points[2], y: startY + points[3] };
-                console.log('[Triangle moved] Segment update:', {
-                    point1: { x: startX, y: startY },
-                    oldPoint2: oldPt2,
-                    newPoint2: newPt2,
-                    targetPos,
-                    referencePoint,
-                });
                 // points[0] and points[1] stay at 0, 0
             }
             // If endpoint 0 is attached, do nothing - first point should never move

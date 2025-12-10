@@ -9,6 +9,8 @@ export {
     hasAttachedPointAt as hasTriangleAttachedPointAt,
     getSegmentAttachmentsToTriangle,
     updateAttachedSegments as updateTriangleAttachedSegments,
+    getPerpendicularExtension,
+    type EdgeExtensionInfo,
 } from './TriangleAttachment';
 export { 
     getTriangleSpecialSnapPoints, 

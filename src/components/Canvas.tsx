@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Stage, Layer, Circle as KonvaCircle } from 'react-konva';
+import { Stage, Layer, Circle as KonvaCircle, Line } from 'react-konva';
 import { useStore, type Shape, type AttachedPoint } from '../store/useStore';
 import { ShapeObj } from './ShapeObj';
 import Konva from 'konva';
@@ -12,7 +12,7 @@ import { useZoomMode, ZoomBoxOverlay } from './modes/ZoomMode';
 import { useSelectionMode, SelectionBoxOverlay } from './modes/SelectionMode';
 import { useDrawingTools } from './tools/useDrawingTools';
 import type { SnapPointInfo } from './tools/DrawingTool';
-import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot } from './shapes/triangle';
+import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot, getPerpendicularExtension, type EdgeExtensionInfo } from './shapes/triangle';
 import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './shapes/polygon';
 import { Grid } from './Grid';
 import { handleTrim } from './tools/Trim';
@@ -140,7 +140,7 @@ export const Canvas: React.FC = () => {
               }
           });
 
-          // Check perpendicular feet on triangle edges
+          // Check perpendicular feet on triangle edges (or their extensions)
           // ONLY offer perpendicular snaps when we have a valid segment start point
           // This ensures consistency between snap preview and final attachment position
           if (shape.type === 'triangle' && vertices.length === 3 && segmentStartPoint) {
@@ -149,22 +149,14 @@ export const Canvas: React.FC = () => {
                   const edgeEnd = vertices[(i + 1) % 3];
                   
                   // Calculate perpendicular foot from the segment's FIRST POINT
-                  const { foot, isOnEdge } = calculatePerpendicularFoot(segmentStartPoint, edgeStart, edgeEnd);
+                  // Allow feet on edge extensions too (they will show dashed extension lines)
+                  const { foot } = calculatePerpendicularFoot(segmentStartPoint, edgeStart, edgeEnd);
                   
-                  if (isOnEdge) {
-                      // Check if mouse is near the calculated foot
-                      const d = Math.sqrt(Math.pow(foot.x - x, 2) + Math.pow(foot.y - y, 2));
-                      if (d < minDist) {
-                          minDist = d;
-                          console.log('[findSnapPointInfo] Perpendicular snap:', {
-                              segmentStartPoint,
-                              mousePos: { x, y },
-                              edgeIndex: i,
-                              foot,
-                              distance: d,
-                          });
-                          closest = { x: foot.x, y: foot.y, shapeId: shape.id, type: 'perpendicular', index: i };
-                      }
+                  // Check if mouse is near the calculated foot
+                  const d = Math.sqrt(Math.pow(foot.x - x, 2) + Math.pow(foot.y - y, 2));
+                  if (d < minDist) {
+                      minDist = d;
+                      closest = { x: foot.x, y: foot.y, shapeId: shape.id, type: 'perpendicular', index: i };
                   }
               }
           }
@@ -237,11 +229,6 @@ export const Canvas: React.FC = () => {
             attrs.y !== segment.y ||
             JSON.stringify(attrs.points) !== JSON.stringify(segment.points);
           if (needsUpdate) {
-            console.log('[Canvas useEffect] Applying segment update:', {
-              segmentId,
-              before: { x: segment.x, y: segment.y, points: segment.points },
-              after: attrs,
-            });
             updateShape(segmentId, attrs);
           }
         }
@@ -434,6 +421,35 @@ export const Canvas: React.FC = () => {
   
   const attachedPointsToRender = getAttachedPointsToRender();
 
+  // Calculate extension lines for perpendicular attachments
+  const getExtensionLinesToRender = useCallback(() => {
+    const extensions: EdgeExtensionInfo[] = [];
+    
+    segmentAttachments.forEach(attachment => {
+      if (attachment.attachType !== 'perpendicular') return;
+      
+      const triangle = shapes.find(s => s.id === attachment.targetShapeId);
+      const segment = shapes.find(s => s.id === attachment.segmentId);
+      if (!triangle || !segment || segment.type !== 'segment' || !segment.points) return;
+      
+      // Get the reference point (the other endpoint of the segment)
+      const otherEndpointIndex = attachment.endpoint === 0 ? 1 : 0;
+      const referencePoint = {
+        x: segment.x + segment.points[otherEndpointIndex * 2],
+        y: segment.y + segment.points[otherEndpointIndex * 2 + 1]
+      };
+      
+      const extension = getPerpendicularExtension(triangle, attachment.targetIndex, referencePoint);
+      if (extension) {
+        extensions.push(extension);
+      }
+    });
+    
+    return extensions;
+  }, [shapes, segmentAttachments]);
+  
+  const extensionLinesToRender = getExtensionLinesToRender();
+
   // Get cursor style from tool manager
   const cursorClass = toolManager.getCursor(tool);
 
@@ -497,6 +513,17 @@ export const Canvas: React.FC = () => {
             fill="black"
             stroke="black"
             strokeWidth={1 / viewport.scale}
+            listening={false}
+          />
+        ))}
+        {/* Render edge extension lines (dashed) for perpendicular feet outside edges */}
+        {extensionLinesToRender.map((ext, idx) => (
+          <Line
+            key={`ext-${idx}`}
+            points={[ext.from.x, ext.from.y, ext.to.x, ext.to.y]}
+            stroke="#666"
+            strokeWidth={1 / viewport.scale}
+            dash={[6 / viewport.scale, 4 / viewport.scale]}
             listening={false}
           />
         ))}
