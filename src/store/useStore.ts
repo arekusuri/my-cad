@@ -27,6 +27,8 @@ export interface SegmentAttachment {
   targetIndex: number;
 }
 
+export type LineType = 'solid' | 'dashed' | 'dotted' | 'dashdot';
+
 export interface Shape {
   id: string;
   type: ShapeType;
@@ -40,6 +42,7 @@ export interface Shape {
   fill?: string;
   rotation: number;
   showCircumcenter?: boolean;
+  lineType?: LineType;
 }
 
 export type ToolType = 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim' | 'point' | 'zoom';

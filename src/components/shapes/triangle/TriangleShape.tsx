@@ -39,6 +39,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const [isDraggingShape, setIsDraggingShape] = React.useState(false);
+  const [dragPosition, setDragPosition] = React.useState<{ x: number; y: number } | null>(null);
   
   // Stroke width that maintains consistent visual appearance regardless of zoom
   const strokeWidth = 1 / viewportScale;
@@ -83,7 +84,11 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
     return null;
   }
 
-  const circumcenter = shape.showCircumcenter ? getCircumcenter(shape) : null;
+  // Use drag position if dragging, otherwise use shape position
+  const currentShape = dragPosition 
+    ? { ...shape, x: dragPosition.x, y: dragPosition.y }
+    : shape;
+  const circumcenter = currentShape.showCircumcenter ? getCircumcenter(currentShape) : null;
 
   return (
     <>
@@ -111,16 +116,20 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
           if (!isSelected) onSelect();
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
           setIsDraggingShape(true);
+          setDragPosition({ x: e.target.x(), y: e.target.y() });
           setCursor('grabbing', e);
         }}
         dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
         onDragMove={(e) => {
           // Update attached segments in real-time during drag
           updateAttachedSegmentsDuringDrag(e.target.x(), e.target.y());
+          // Update drag position for circumcenter
+          setDragPosition({ x: e.target.x(), y: e.target.y() });
         }}
         onDragEnd={(e) => {
           dragStartPos.current = null;
           setIsDraggingShape(false);
+          setDragPosition(null);
           setCursor('grab', e);
           onChange({
             x: e.target.x(),

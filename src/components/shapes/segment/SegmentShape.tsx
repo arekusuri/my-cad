@@ -1,11 +1,32 @@
 import React, { useRef, useEffect } from 'react';
 import { Line, Transformer, Circle } from 'react-konva';
-import type { Shape } from '../../../store/useStore';
+import type { Shape, LineType } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
 import Konva from 'konva';
 import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops';
 import { getPolyTransformAttrs, calculateVertexDrag, calculateVertexPos } from './SegmentShape_ops';
 import { setCursor } from '../cursor';
+
+/**
+ * Get dash pattern for a line type, scaled by viewport
+ */
+function getLineDash(lineType: LineType | undefined, scale: number): number[] | undefined {
+  const baseSize = 8;
+  const dotSize = 2;
+  const gap = 4;
+  
+  switch (lineType) {
+    case 'dashed':
+      return [baseSize / scale, gap / scale];
+    case 'dotted':
+      return [dotSize / scale, gap / scale];
+    case 'dashdot':
+      return [baseSize / scale, gap / scale, dotSize / scale, gap / scale];
+    case 'solid':
+    default:
+      return undefined;
+  }
+}
 
 interface SegmentShapeProps {
   shape: Shape;
@@ -37,6 +58,9 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
   
   // Stroke width that maintains consistent visual appearance regardless of zoom
   const strokeWidth = 1 / viewportScale;
+  
+  // Get dash pattern based on line type
+  const dashPattern = getLineDash(shape.lineType, viewportScale);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -65,6 +89,7 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
         rotation={shape.rotation}
         stroke={shape.stroke}
         strokeWidth={strokeWidth}
+        dash={dashPattern}
         fill={shape.fill}
         id={shape.id}
         points={shape.points}
