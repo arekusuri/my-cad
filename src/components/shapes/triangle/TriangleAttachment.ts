@@ -196,7 +196,7 @@ export function updateAttachedSegments(
     
     for (const attachment of attachments) {
         const segment = allShapes.find(s => s.id === attachment.segmentId);
-        if (!segment || segment.type !== 'segment' || !segment.points) continue;
+        if (!segment || (segment.type !== 'segment' && segment.type !== 'line') || !segment.points) continue;
         
         // For perpendicular attachments, use the segment's other endpoint as reference
         let referencePoint: Point | undefined;

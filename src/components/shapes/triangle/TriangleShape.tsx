@@ -109,9 +109,8 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
         draggable={tool === 'select'}
         onClick={handleClick}
         onTap={handleClick}
-        onMouseEnter={(e) => {
-          if (tool === 'select') setCursor('grab', e);
-        }}
+        hitStrokeWidth={20 / viewportScale}
+        fillHitEnabled={false}
         onMouseLeave={(e) => {
           if (!isDraggingShape) setCursor('', e);
         }}
@@ -121,7 +120,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
           dragStartPos.current = { x: e.target.x(), y: e.target.y() };
           setIsDraggingShape(true);
           setDragPosition({ x: e.target.x(), y: e.target.y() });
-          setCursor('grabbing', e);
+          setCursor('move', e);
         }}
         dragBoundFunc={(pos) => commonDragBoundFunc(pos, dragStartPos.current, isShiftPressed)}
         onDragMove={(e) => {
@@ -134,7 +133,7 @@ export const TriangleShape: React.FC<TriangleShapeProps> = ({
           dragStartPos.current = null;
           setIsDraggingShape(false);
           setDragPosition(null);
-          setCursor('grab', e);
+          setCursor('', e);
           onChange({
             x: e.target.x(),
             y: e.target.y(),

@@ -1,6 +1,46 @@
 import React from 'react';
 import { useStore, type ToolType } from '../store/useStore';
-import { MousePointer2, Square, Circle, Minus, Eraser, Scissors, Triangle, Hexagon, MapPin, ZoomIn, Maximize } from 'lucide-react';
+import { MousePointer2, Square, Circle, Eraser, Scissors, Triangle, Hexagon, MapPin, ZoomIn, Maximize } from 'lucide-react';
+
+// Custom segment icon: 30-degree angled line with points on both ends
+const SegmentIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* 30-degree line from bottom-left to top-right */}
+    <line x1="4" y1="17" x2="20" y2="9" />
+    {/* Point at start */}
+    <circle cx="4" cy="17" r="2" fill="currentColor" stroke="none" />
+    {/* Point at end */}
+    <circle cx="20" cy="9" r="2" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+// Custom line icon: 30-degree line with point in the middle (infinite line)
+const LineIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* 30-degree line extending beyond bounds */}
+    <line x1="2" y1="18" x2="22" y2="8" />
+    {/* Point in the middle */}
+    <circle cx="12" cy="13" r="2" fill="currentColor" stroke="none" />
+  </svg>
+);
 
 export const Toolbar: React.FC = () => {
   const tool = useStore((state) => state.tool);
@@ -14,7 +54,8 @@ export const Toolbar: React.FC = () => {
     { name: 'circle', icon: Circle },
     { name: 'triangle', icon: Triangle },
     { name: 'polygon', icon: Hexagon },
-    { name: 'segment', icon: Minus },
+    { name: 'segment', icon: SegmentIcon },
+    { name: 'line', icon: LineIcon },
     { name: 'point', icon: MapPin },
     { name: 'trim', icon: Scissors },
     { name: 'eraser', icon: Eraser },

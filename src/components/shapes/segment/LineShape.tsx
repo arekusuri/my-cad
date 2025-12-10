@@ -1,34 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { Line, Transformer, Circle } from 'react-konva';
-import type { Shape, LineType } from '../../../store/useStore';
+import type { Shape } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
 import Konva from 'konva';
 import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops';
 import { getPolyTransformAttrs, calculateVertexDrag, calculateVertexPos } from './SegmentShape_ops';
 import { setCursor } from '../cursor';
 
-/**
- * Get dash pattern for a line type, scaled by viewport
- */
-function getLineDash(lineType: LineType | undefined, scale: number): number[] | undefined {
-  const baseSize = 8;
-  const dotSize = 2;
-  const gap = 4;
-  
-  switch (lineType) {
-    case 'dashed':
-      return [baseSize / scale, gap / scale];
-    case 'dotted':
-      return [dotSize / scale, gap / scale];
-    case 'dashdot':
-      return [baseSize / scale, gap / scale, dotSize / scale, gap / scale];
-    case 'solid':
-    default:
-      return undefined;
-  }
-}
-
-interface SegmentShapeProps {
+interface LineShapeProps {
   shape: Shape;
   isSelected: boolean;
   onSelect: () => void;
@@ -36,7 +15,53 @@ interface SegmentShapeProps {
   onTrim: (e: Konva.KonvaEventObject<MouseEvent> | Konva.KonvaEventObject<TouchEvent>) => void;
 }
 
-export const SegmentShape: React.FC<SegmentShapeProps> = ({
+/**
+ * Calculate the extended line points that go beyond the canvas bounds.
+ * A line defined by two points extends infinitely in both directions.
+ */
+function getExtendedLinePoints(
+  x: number,
+  y: number,
+  points: number[],
+  canvasWidth: number,
+  canvasHeight: number
+): number[] {
+  if (!points || points.length < 4) return [0, 0, 0, 0];
+  
+  // Get the two defining points in absolute coordinates
+  const p1x = x + points[0];
+  const p1y = y + points[1];
+  const p2x = x + points[2];
+  const p2y = y + points[3];
+  
+  // Direction vector
+  const dx = p2x - p1x;
+  const dy = p2y - p1y;
+  
+  // If points are the same, return original
+  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+    return points;
+  }
+  
+  // Extend the line by finding intersections with canvas bounds
+  // We'll extend far beyond the visible area
+  const extent = Math.max(canvasWidth, canvasHeight) * 10;
+  
+  // Normalize direction and scale
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const ndx = (dx / len) * extent;
+  const ndy = (dy / len) * extent;
+  
+  // Extended points (relative to shape origin)
+  const ext1x = points[0] - ndx;
+  const ext1y = points[1] - ndy;
+  const ext2x = points[2] + ndx;
+  const ext2y = points[3] + ndy;
+  
+  return [ext1x, ext1y, ext2x, ext2y];
+}
+
+export const LineShape: React.FC<LineShapeProps> = ({
   shape,
   isSelected,
   onSelect,
@@ -58,9 +83,6 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
   
   // Stroke width that maintains consistent visual appearance regardless of zoom
   const strokeWidth = 1 / viewportScale;
-  
-  // Get dash pattern based on line type
-  const dashPattern = getLineDash(shape.lineType, viewportScale);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -81,6 +103,15 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
     }
   };
 
+  // Get extended line points for rendering
+  const extendedPoints = getExtendedLinePoints(
+    shape.x,
+    shape.y,
+    shape.points || [0, 0, 0, 0],
+    5000, // Large canvas size for extension
+    5000
+  );
+
   return (
     <>
       <Line
@@ -89,10 +120,9 @@ export const SegmentShape: React.FC<SegmentShapeProps> = ({
         rotation={shape.rotation}
         stroke={shape.stroke}
         strokeWidth={strokeWidth}
-        dash={dashPattern}
         fill={shape.fill}
         id={shape.id}
-        points={shape.points}
+        points={extendedPoints}
         closed={false}
         hitStrokeWidth={20 / viewportScale}
         draggable={tool === 'select'}

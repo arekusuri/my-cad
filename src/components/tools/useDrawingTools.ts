@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore';
 import type { DrawingTool, DrawingContext, DrawingMouseEvent, SnapPointInfo } from './DrawingTool';
 import { CircleDrawing } from '../shapes/circle/CircleDrawing';
 import { RectDrawing } from '../shapes/rect/RectDrawing';
-import { SegmentDrawing } from '../shapes/segment/SegmentDrawing';
+import { SegmentDrawing, LineDrawing } from '../shapes/segment';
 import { PolygonDrawing } from '../shapes/polygon/PolygonDrawing';
 import { TriangleDrawing, type TriangleDrawState } from '../shapes/triangle/TriangleDrawing';
 import { type Point, findLineIntersections } from '../../utils/geometry';
@@ -48,6 +48,7 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         circle: new CircleDrawing(),
         rect: new RectDrawing(),
         segment: new SegmentDrawing(),
+        line: new LineDrawing(),
         polygon: new PolygonDrawing(),
         triangle: new TriangleDrawing(),
     });

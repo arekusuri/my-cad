@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 
-export type ShapeType = 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon';
+export type ShapeType = 'rect' | 'circle' | 'segment' | 'line' | 'triangle' | 'polygon';
 
 export interface AttachedPoint {
   id: string;
@@ -47,7 +47,7 @@ export interface Shape {
   lineType?: LineType;
 }
 
-export type ToolType = 'select' | 'rect' | 'circle' | 'segment' | 'triangle' | 'polygon' | 'eraser' | 'trim' | 'point' | 'zoom';
+export type ToolType = 'select' | 'rect' | 'circle' | 'segment' | 'line' | 'triangle' | 'polygon' | 'eraser' | 'trim' | 'point' | 'zoom';
 
 /** Viewport state for zoom/pan */
 export interface ViewportState {
