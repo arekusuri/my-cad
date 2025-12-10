@@ -21,9 +21,9 @@ export {
     getAllPerpendicularFeet,
     getOrthocenter,
     getAltitudeLength,
-    calculatePerpendicularFoot,
     type PerpendicularFoot
 } from './TriangleOrthoCenter';
+export { calculatePerpendicularFoot } from '../segment/PerpendicularFoot';
 export {
     getCentroid,
     calculateCentroid,

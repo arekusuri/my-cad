@@ -4,7 +4,7 @@ import { type Shape } from '../../store/useStore';
 import { getShapeVertices, getShapeMidpoints } from '../../utils/geometry';
 import { getShapeSpecialSnapPoints } from '../../utils/shapeSnapPoints';
 import { constrainLineToOrtho } from './OrthoMode';
-import { calculatePerpendicularFoot } from '../shapes/triangle/TriangleOrthoCenter';
+import { calculatePerpendicularFoot } from '../shapes/segment/PerpendicularFoot';
 
 export interface DraggingVertex {
     shapeId: string;

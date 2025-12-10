@@ -2,7 +2,8 @@ import type { Shape, AttachedPoint, SegmentAttachment } from '../../../store/use
 import type { Point } from '../../../utils/geometry';
 import { getShapeVertices, getShapeMidpoints } from '../../../utils/geometry';
 import { getCircumcenterPoint } from './TriangleCircumcenter';
-import { calculatePerpendicularFoot, getOrthocenter } from './TriangleOrthoCenter';
+import { getOrthocenter } from './TriangleOrthoCenter';
+import { calculatePerpendicularFoot } from '../segment/PerpendicularFoot';
 import { getCentroid } from './TriangleCentroid';
 
 /**
