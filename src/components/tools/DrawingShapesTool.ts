@@ -28,7 +28,18 @@ export class DrawingShapesTool implements Tool {
 
     // Show snap points when Alt is pressed
     if (event.altKey) {
-      const closest = findClosestSnapPoint(event.pos, context.shapes);
+      // Enable perpendicular feet only when drawing a segment's second point
+      const isDrawingSegment = context.tool === 'segment' && context.drawingTools.isDrawing;
+      
+      // Get segment start point for perpendicular reference
+      const segmentStart = isDrawingSegment && context.drawingTools.getSegmentStartPoint 
+        ? context.drawingTools.getSegmentStartPoint() 
+        : null;
+      
+      const closest = findClosestSnapPoint(event.pos, context.shapes, 10, { 
+        includePerpendicularFeet: isDrawingSegment,
+        perpendicularReferencePoint: segmentStart ?? undefined
+      });
       context.setHoveredSnapPoint(closest);
     } else {
       context.setHoveredSnapPoint(null);

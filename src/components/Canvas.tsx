@@ -12,7 +12,7 @@ import { useZoomMode, ZoomBoxOverlay } from './modes/ZoomMode';
 import { useSelectionMode, SelectionBoxOverlay } from './modes/SelectionMode';
 import { useDrawingTools } from './tools/useDrawingTools';
 import type { SnapPointInfo } from './tools/DrawingTool';
-import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments } from './shapes/triangle';
+import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot } from './shapes/triangle';
 import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './shapes/polygon';
 import { Grid } from './Grid';
 import { handleTrim } from './tools/Trim';
@@ -95,10 +95,18 @@ export const Canvas: React.FC = () => {
       return closestPoint;
   }, [shapes]);
 
+  // Drawing tools (encapsulated - handles all shapes: circle, rect, segment, polygon, triangle)
+  // Note: We need drawingTools first to get segment start point for perpendicular snapping
+  const drawingToolsRef = React.useRef<ReturnType<typeof useDrawingTools> | null>(null);
+  
   // Find snap point with full info (for creating attachments)
+  // Uses segment's start point (if drawing) for perpendicular calculation
   const findSnapPointInfo = useCallback((x: number, y: number, excludeShapeId?: string | null): SnapPointInfo | null => {
       let closest: SnapPointInfo | null = null;
       let minDist = 10; // Snap threshold
+      
+      // Get segment start point for perpendicular calculation (if currently drawing a segment)
+      const segmentStartPoint = drawingToolsRef.current?.getSegmentStartPoint() ?? null;
 
       shapes.forEach(shape => {
           if (excludeShapeId && shape.id === excludeShapeId) return;
@@ -131,13 +139,46 @@ export const Canvas: React.FC = () => {
                   closest = { x: sp.point.x, y: sp.point.y, shapeId: shape.id, type: sp.type, index: sp.index };
               }
           });
+
+          // Check perpendicular feet on triangle edges
+          // ONLY offer perpendicular snaps when we have a valid segment start point
+          // This ensures consistency between snap preview and final attachment position
+          if (shape.type === 'triangle' && vertices.length === 3 && segmentStartPoint) {
+              for (let i = 0; i < 3; i++) {
+                  const edgeStart = vertices[i];
+                  const edgeEnd = vertices[(i + 1) % 3];
+                  
+                  // Calculate perpendicular foot from the segment's FIRST POINT
+                  const { foot, isOnEdge } = calculatePerpendicularFoot(segmentStartPoint, edgeStart, edgeEnd);
+                  
+                  if (isOnEdge) {
+                      // Check if mouse is near the calculated foot
+                      const d = Math.sqrt(Math.pow(foot.x - x, 2) + Math.pow(foot.y - y, 2));
+                      if (d < minDist) {
+                          minDist = d;
+                          console.log('[findSnapPointInfo] Perpendicular snap:', {
+                              segmentStartPoint,
+                              mousePos: { x, y },
+                              edgeIndex: i,
+                              foot,
+                              distance: d,
+                          });
+                          closest = { x: foot.x, y: foot.y, shapeId: shape.id, type: 'perpendicular', index: i };
+                      }
+                  }
+              }
+          }
       });
 
       return closest;
   }, [shapes]);
 
-  // Drawing tools (encapsulated - handles all shapes: circle, rect, segment, polygon, triangle)
   const drawingTools = useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo });
+  
+  // Update ref after render (for use in findSnapPointInfo callback)
+  useEffect(() => {
+    drawingToolsRef.current = drawingTools;
+  });
 
   // Handle Escape key to cancel drawing
   useEffect(() => {
@@ -196,6 +237,11 @@ export const Canvas: React.FC = () => {
             attrs.y !== segment.y ||
             JSON.stringify(attrs.points) !== JSON.stringify(segment.points);
           if (needsUpdate) {
+            console.log('[Canvas useEffect] Applying segment update:', {
+              segmentId,
+              before: { x: segment.x, y: segment.y, points: segment.points },
+              after: attrs,
+            });
             updateShape(segmentId, attrs);
           }
         }

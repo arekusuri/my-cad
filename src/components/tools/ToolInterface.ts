@@ -61,6 +61,9 @@ export interface ToolContext {
     handleMouseDown: (event: { x: number; y: number; shiftKey: boolean; altKey: boolean; button: number }) => { handled: boolean };
     handleMouseMove: (event: { x: number; y: number; shiftKey: boolean; altKey: boolean; button: number }) => { handled: boolean };
     handleMouseUp: (event: { x: number; y: number; shiftKey: boolean; altKey: boolean; button: number }) => { handled: boolean };
+    isDrawing: boolean;
+    /** Get the start point of the current segment being drawn (if any) */
+    getSegmentStartPoint?: () => { x: number; y: number } | null;
   };
 }
 

@@ -14,4 +14,12 @@ export {
     getTriangleSpecialSnapPoints, 
     registerTriangleSpecialSnapPoints 
 } from './TriangleSnapPoints';
+export {
+    getPerpendicularFoot,
+    getAllPerpendicularFeet,
+    getOrthocenter,
+    getAltitudeLength,
+    calculatePerpendicularFoot,
+    type PerpendicularFoot
+} from './TrianglePerpendicularFoot';
 

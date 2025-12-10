@@ -22,7 +22,7 @@ export interface SegmentAttachment {
   /** The shape this endpoint is attached to */
   targetShapeId: string;
   /** Type of attachment point */
-  attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter';
+  attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter' | 'perpendicular';
   /** Index of the vertex or midpoint on target shape */
   targetIndex: number;
 }

@@ -93,8 +93,8 @@ export function getSegmentAttachmentsToPolygon(
  * Update all segments attached to this polygon.
  * Returns an object mapping segment IDs to their new attributes.
  * 
- * If a segment has only one endpoint attached, the entire segment translates.
- * If both endpoints are attached, each endpoint moves independently.
+ * The first point (endpoint 0) never moves automatically.
+ * Only endpoint 1 follows its attachment when the polygon moves.
  */
 export function updateAttachedSegments(
     polygon: Shape,
@@ -130,16 +130,16 @@ export function updateAttachedSegments(
         const points = currentUpdate.points as number[];
         
         if (hasOnlyOneAttachment) {
-            // Only one attachment - translate the entire segment
-            // Calculate delta from current attached point position to target position
-            const currentAttachedX = segment.x + segment.points[attachment.endpoint * 2];
-            const currentAttachedY = segment.y + segment.points[attachment.endpoint * 2 + 1];
-            const deltaX = targetPos.x - currentAttachedX;
-            const deltaY = targetPos.y - currentAttachedY;
-            
-            currentUpdate.x = segment.x + deltaX;
-            currentUpdate.y = segment.y + deltaY;
-            // Points stay the same (segment shape unchanged)
+            // Only one attachment - keep first point fixed, only move attached endpoint
+            if (attachment.endpoint === 1) {
+                // Endpoint 1 attached: keep endpoint 0 fixed, update endpoint 1
+                const startX = segment.x;
+                const startY = segment.y;
+                points[2] = targetPos.x - startX;
+                points[3] = targetPos.y - startY;
+                // points[0] and points[1] stay at 0, 0
+            }
+            // If endpoint 0 is attached, do nothing - first point should never move
         } else if (attachment.endpoint === 0) {
             // Two attachments - update start point, move the segment origin
             const endAbsX = segment.x + segment.points[2];

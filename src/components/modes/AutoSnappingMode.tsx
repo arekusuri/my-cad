@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Circle as KonvaCircle, RegularPolygon } from 'react-konva';
+import { Circle as KonvaCircle, RegularPolygon, Rect, Line } from 'react-konva';
 import { type Shape } from '../../store/useStore';
 import { getShapeVertices, getShapeMidpoints } from '../../utils/geometry';
 import { getShapeSpecialSnapPoints } from '../../utils/shapeSnapPoints';
 import { constrainLineToOrtho } from './OrthoMode';
+import { calculatePerpendicularFoot } from '../shapes/triangle/TrianglePerpendicularFoot';
 
 export interface DraggingVertex {
     shapeId: string;
@@ -75,7 +76,9 @@ export interface SnapPoint {
     index: number;
     x: number;
     y: number;
-    type: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter';
+    type: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter' | 'perpendicular';
+    /** For perpendicular on extension: the edge endpoint to draw extension line from */
+    extensionFrom?: { x: number; y: number };
 }
 
 interface SnapPointHighlightProps {
@@ -85,7 +88,7 @@ interface SnapPointHighlightProps {
 
 /**
  * Visual highlight for snap points (vertices and midpoints).
- * Shows a red circle for vertices, blue triangle for midpoints.
+ * Shows a red circle for vertices, blue triangle for midpoints, green square for perpendicular foot.
  */
 export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredSnapPoint, viewportScale = 1 }) => {
     if (!hoveredSnapPoint) return null;
@@ -105,6 +108,41 @@ export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredS
                 listening={false}
                 rotation={0}
             />
+        );
+    }
+    
+    // Perpendicular foot - green square, with optional extension line
+    if (hoveredSnapPoint.type === 'perpendicular') {
+        const size = 10 / viewportScale;
+        return (
+            <>
+                {/* Extension line (dashed) if foot is on extension */}
+                {hoveredSnapPoint.extensionFrom && (
+                    <Line
+                        points={[
+                            hoveredSnapPoint.extensionFrom.x,
+                            hoveredSnapPoint.extensionFrom.y,
+                            hoveredSnapPoint.x,
+                            hoveredSnapPoint.y
+                        ]}
+                        stroke="#22c55e"
+                        strokeWidth={1 / viewportScale}
+                        dash={[6 / viewportScale, 4 / viewportScale]}
+                        listening={false}
+                    />
+                )}
+                {/* Square marker */}
+                <Rect
+                    x={hoveredSnapPoint.x - size / 2}
+                    y={hoveredSnapPoint.y - size / 2}
+                    width={size}
+                    height={size}
+                    stroke="#22c55e"
+                    strokeWidth={strokeWidth}
+                    fill="transparent"
+                    listening={false}
+                />
+            </>
         );
     }
     
@@ -145,10 +183,18 @@ export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredS
 export const findClosestSnapPoint = (
     pos: { x: number; y: number },
     shapes: Shape[],
-    threshold: number = 10
+    threshold: number = 10,
+    options?: { 
+        includePerpendicularFeet?: boolean;
+        /** Reference point for perpendicular calculation (e.g., segment start point) */
+        perpendicularReferencePoint?: { x: number; y: number };
+    }
 ): SnapPoint | null => {
     let closest: SnapPoint | null = null;
     let minDist = threshold;
+    const includePerpendicularFeet = options?.includePerpendicularFeet ?? false;
+    // Use reference point for perpendicular calculation, default to mouse pos
+    const perpRefPoint = options?.perpendicularReferencePoint ?? pos;
 
     shapes.forEach(shape => {
         // Check vertices
@@ -180,6 +226,52 @@ export const findClosestSnapPoint = (
                 closest = { shapeId: shape.id, index: sp.index, x: sp.point.x, y: sp.point.y, type: sp.type };
             }
         });
+
+        // Check perpendicular feet on triangle edges (only when enabled)
+        if (includePerpendicularFeet && shape.type === 'triangle' && vertices.length === 3) {
+            // For each edge, calculate perpendicular foot from the REFERENCE point (segment start)
+            for (let i = 0; i < 3; i++) {
+                const edgeStart = vertices[i];
+                const edgeEnd = vertices[(i + 1) % 3];
+                
+                // Calculate perpendicular foot from reference point to edge
+                const { foot, isOnEdge } = calculatePerpendicularFoot(perpRefPoint, edgeStart, edgeEnd);
+                
+                // Check distance from MOUSE position to the foot (for snapping detection)
+                const d = Math.sqrt(Math.pow(foot.x - pos.x, 2) + Math.pow(foot.y - pos.y, 2));
+                if (d < minDist) {
+                    minDist = d;
+                    
+                    // If foot is on extension, determine which endpoint to draw extension from
+                    let extensionFrom: { x: number; y: number } | undefined;
+                    if (!isOnEdge) {
+                        // Calculate t parameter to determine which end
+                        const dx = edgeEnd.x - edgeStart.x;
+                        const dy = edgeEnd.y - edgeStart.y;
+                        const lenSq = dx * dx + dy * dy;
+                        if (lenSq > 0.0001) {
+                            const t = ((foot.x - edgeStart.x) * dx + (foot.y - edgeStart.y) * dy) / lenSq;
+                            if (t < 0) {
+                                // Foot is before edgeStart
+                                extensionFrom = edgeStart;
+                            } else {
+                                // Foot is after edgeEnd
+                                extensionFrom = edgeEnd;
+                            }
+                        }
+                    }
+                    
+                    closest = { 
+                        shapeId: shape.id, 
+                        index: i, 
+                        x: foot.x, 
+                        y: foot.y, 
+                        type: 'perpendicular',
+                        extensionFrom
+                    };
+                }
+            }
+        }
     });
     return closest;
 };

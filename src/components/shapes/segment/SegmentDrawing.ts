@@ -19,6 +19,12 @@ export class SegmentDrawing implements DrawingTool {
     private startSnapInfo: SnapPointInfo | null = null;
     private endSnapInfo: SnapPointInfo | null = null;
     
+    /** Get the start point of the segment being drawn */
+    getStartPoint(): { x: number; y: number } | null {
+        if (!this.isDrawing) return null;
+        return { x: this.startX, y: this.startY };
+    }
+    
     handleMouseDown(e: DrawingMouseEvent, ctx: DrawingContext): DrawingResult {
         if (e.button !== 0) return { handled: false };
         
@@ -42,6 +48,8 @@ export class SegmentDrawing implements DrawingTool {
         
         this.startX = x;
         this.startY = y;
+        
+        console.log('[Segment] First point clicked:', { x, y });
         
         // Create initial shape
         const shape: Omit<Shape, 'id'> = {
@@ -119,6 +127,14 @@ export class SegmentDrawing implements DrawingTool {
         if (shape && this.isShapeTooSmall(shape)) {
             ctx.deleteShape(shape.id);
         } else if (shape) {
+            // Log second point position
+            const pt1 = { x: shape.x + (shape.points?.[0] ?? 0), y: shape.y + (shape.points?.[1] ?? 0) };
+            const pt2 = { x: shape.x + (shape.points?.[2] ?? 0), y: shape.y + (shape.points?.[3] ?? 0) };
+            console.log('[Segment] Second point confirmed:', {
+                point1: pt1,
+                point2: pt2,
+                endSnapInfo: this.endSnapInfo,
+            });
             // Create attachments for snapped endpoints
             if (this.startSnapInfo && this.isValidAttachmentTarget(this.startSnapInfo, shapes)) {
                 ctx.addSegmentAttachment({
@@ -201,7 +217,13 @@ export class SegmentDrawing implements DrawingTool {
     /** Check if the snap target is a valid attachment target (triangle or polygon) */
     private isValidAttachmentTarget(snapInfo: SnapPointInfo, shapes: Shape[]): boolean {
         const targetShape = shapes.find(s => s.id === snapInfo.shapeId);
-        return targetShape !== undefined && 
-               (targetShape.type === 'triangle' || targetShape.type === 'polygon');
+        if (!targetShape) return false;
+        
+        // Perpendicular foot only valid for triangles
+        if (snapInfo.type === 'perpendicular') {
+            return targetShape.type === 'triangle';
+        }
+        
+        return targetShape.type === 'triangle' || targetShape.type === 'polygon';
     }
 }

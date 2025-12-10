@@ -125,6 +125,12 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         return triangleTool.getPreviewData();
     }, []);
     
+    // Get segment start point (for perpendicular foot calculation)
+    const getSegmentStartPoint = useCallback((): { x: number; y: number } | null => {
+        const segmentTool = toolsRef.current['segment'] as SegmentDrawing;
+        return segmentTool.getStartPoint();
+    }, []);
+    
     return {
         /** The currently active drawing tool (null if tool is not a shape tool) */
         activeTool,
@@ -140,5 +146,7 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         cancel,
         /** Get triangle preview data for rendering */
         getTrianglePreview,
+        /** Get segment start point (for perpendicular snap) */
+        getSegmentStartPoint,
     };
 }
