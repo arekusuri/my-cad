@@ -13,6 +13,9 @@ import { useSelectionMode, SelectionBoxOverlay } from './components/modes/Select
 import { useDrawingTools } from './components/tools/useDrawingTools';
 import type { SnapPointInfo } from './components/tools/DrawingTool';
 import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot, getPerpendicularExtension, type EdgeExtensionInfo } from './components/shapes/triangle';
+import { getLineArcIntersections, getShapeEdges } from './utils/geometry';
+import { AnglePreview } from './components/shapes/angle';
+import { CompassPreview } from './components/shapes/arc';
 import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './components/shapes/polygon';
 import { Grid } from './components/lib/Grid';
 import { handleTrim } from './components/tools/Trim';
@@ -91,6 +94,38 @@ export const Canvas: React.FC = () => {
               }
           });
       });
+      
+      // Check for intersections between existing shape edges and arcs
+      const arcs = shapes.filter(s => s.type === 'arc' && s.radius !== undefined && 
+          s.startAngle !== undefined && s.sweepAngle !== undefined);
+      
+      shapes.forEach(shape => {
+          if (excludeShapeId && shape.id === excludeShapeId) return;
+          
+          const edges = getShapeEdges(shape);
+          edges.forEach(([p1, p2]) => {
+              arcs.forEach(arc => {
+                  if (excludeShapeId && arc.id === excludeShapeId) return;
+                  if (arc.id === shape.id) return;
+                  
+                  const arcIntersections = getLineArcIntersections(
+                      p1, p2,
+                      { x: arc.x, y: arc.y },
+                      arc.radius!,
+                      arc.startAngle!,
+                      arc.sweepAngle!
+                  );
+                  
+                  arcIntersections.forEach(intersection => {
+                      const d = Math.sqrt(Math.pow(intersection.x - x, 2) + Math.pow(intersection.y - y, 2));
+                      if (d < minDist) {
+                          minDist = d;
+                          closestPoint = intersection;
+                      }
+                  });
+              });
+          });
+      });
 
       return closestPoint;
   }, [shapes]);
@@ -160,6 +195,59 @@ export const Canvas: React.FC = () => {
                   }
               }
           }
+          
+          // Check line-arc intersections when drawing a segment
+          if (shape.type === 'arc' && segmentStartPoint && 
+              shape.radius !== undefined && shape.startAngle !== undefined && shape.sweepAngle !== undefined) {
+              const arcIntersections = getLineArcIntersections(
+                  segmentStartPoint,
+                  { x, y },
+                  { x: shape.x, y: shape.y },
+                  shape.radius,
+                  shape.startAngle,
+                  shape.sweepAngle
+              );
+              arcIntersections.forEach((intersection, i) => {
+                  const d = Math.sqrt(Math.pow(intersection.x - x, 2) + Math.pow(intersection.y - y, 2));
+                  if (d < minDist) {
+                      minDist = d;
+                      closest = { x: intersection.x, y: intersection.y, shapeId: shape.id, type: 'intersection', index: i };
+                  }
+              });
+          }
+      });
+      
+      // Check for intersections between existing shape edges and arcs
+      // This finds snap points where edges (from angles, segments, triangles, etc.) cross arcs
+      const arcs = shapes.filter(s => s.type === 'arc' && s.radius !== undefined && 
+          s.startAngle !== undefined && s.sweepAngle !== undefined);
+      
+      shapes.forEach(shape => {
+          if (excludeShapeId && shape.id === excludeShapeId) return;
+          
+          const edges = getShapeEdges(shape);
+          edges.forEach(([p1, p2]) => {
+              arcs.forEach(arc => {
+                  if (excludeShapeId && arc.id === excludeShapeId) return;
+                  if (arc.id === shape.id) return; // Don't check shape against itself
+                  
+                  const arcIntersections = getLineArcIntersections(
+                      p1, p2,
+                      { x: arc.x, y: arc.y },
+                      arc.radius!,
+                      arc.startAngle!,
+                      arc.sweepAngle!
+                  );
+                  
+                  arcIntersections.forEach((intersection, i) => {
+                      const d = Math.sqrt(Math.pow(intersection.x - x, 2) + Math.pow(intersection.y - y, 2));
+                      if (d < minDist) {
+                          minDist = d;
+                          closest = { x: intersection.x, y: intersection.y, shapeId: arc.id, type: 'intersection', index: i };
+                      }
+                  });
+              });
+          });
       });
 
       return closest;
@@ -385,6 +473,12 @@ export const Canvas: React.FC = () => {
   const handleContextMenu = (e: Konva.KonvaEventObject<PointerEvent>) => {
       e.evt.preventDefault(); // Prevent default browser context menu
       
+      // If drawing with compass, right-click cancels the drawing
+      if (drawingTools.isDrawing) {
+          drawingTools.cancel();
+          return;
+      }
+      
       // If right-clicking on empty area, switch to select tool
       const clickedOnEmpty = e.target === e.target.getStage();
       if (clickedOnEmpty) {
@@ -401,6 +495,12 @@ export const Canvas: React.FC = () => {
 
   // Get triangle preview data
   const trianglePreview = drawingTools.getTrianglePreview();
+  
+  // Get angle preview data
+  const anglePreview = drawingTools.getAnglePreview();
+  
+  // Get compass preview data
+  const compassPreview = drawingTools.getCompassPreview();
 
   // Calculate all attached point positions for rendering
   const getAttachedPointsToRender = useCallback(() => {
@@ -503,6 +603,10 @@ export const Canvas: React.FC = () => {
         <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} viewportScale={viewport.scale} />
         {/* Triangle tool preview */}
         <TrianglePreview drawState={trianglePreview.drawState} previewPoint={trianglePreview.previewPoint} />
+        {/* Angle tool preview */}
+        <AnglePreview drawState={anglePreview.drawState} previewPoint={anglePreview.previewPoint} />
+        {/* Compass tool preview */}
+        <CompassPreview drawState={compassPreview.drawState} previewPoint={compassPreview.previewPoint} />
         {/* Render attached points */}
         {attachedPointsToRender.map(({ point, position }) => (
           <KonvaCircle

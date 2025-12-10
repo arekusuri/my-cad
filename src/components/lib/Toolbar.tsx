@@ -42,6 +42,56 @@ const LineIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
   </svg>
 );
 
+// Custom angle icon: two lines meeting at a vertex with an arc
+const AngleIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* First edge - horizontal */}
+    <line x1="4" y1="18" x2="20" y2="18" />
+    {/* Second edge - angled up */}
+    <line x1="4" y1="18" x2="16" y2="6" />
+    {/* Arc showing the angle */}
+    <path d="M 10 18 A 6 6 0 0 1 8.5 13.5" fill="none" />
+    {/* Vertex point */}
+    <circle cx="4" cy="18" r="2" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+// Custom compass icon: drawing compass tool
+const CompassIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* Compass hinge/pivot at top */}
+    <circle cx="12" cy="4" r="2" fill="currentColor" stroke="none" />
+    {/* Left leg (with pencil tip) */}
+    <line x1="12" y1="4" x2="6" y2="20" />
+    {/* Right leg (with needle tip) */}
+    <line x1="12" y1="4" x2="18" y2="20" />
+    {/* Pencil tip detail */}
+    <path d="M 5 18 L 6 20 L 7 18" fill="none" />
+    {/* Needle tip */}
+    <circle cx="18" cy="20" r="1" fill="currentColor" stroke="none" />
+    {/* Arc being drawn */}
+    <path d="M 6 20 A 12 12 0 0 1 10 14" fill="none" strokeDasharray="2 2" />
+  </svg>
+);
+
 export const Toolbar: React.FC = () => {
   const tool = useStore((state) => state.tool);
   const setTool = useStore((state) => state.setTool);
@@ -56,6 +106,8 @@ export const Toolbar: React.FC = () => {
     { name: 'polygon', icon: Hexagon },
     { name: 'segment', icon: SegmentIcon },
     { name: 'line', icon: LineIcon },
+    { name: 'angle', icon: AngleIcon },
+    { name: 'compass', icon: CompassIcon },
     { name: 'point', icon: MapPin },
     { name: 'trim', icon: Scissors },
     { name: 'eraser', icon: Eraser },

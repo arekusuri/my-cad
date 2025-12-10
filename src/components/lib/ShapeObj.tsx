@@ -6,6 +6,8 @@ import { CircleShape } from '../shapes/circle/CircleShape';
 import { SegmentShape, LineShape } from '../shapes/segment';
 import { TriangleShape } from '../shapes/triangle/TriangleShape';
 import { PolygonShape } from '../shapes/polygon/PolygonShape';
+import { AngleShape } from '../shapes/angle/AngleShape';
+import { ArcShape } from '../shapes/arc/ArcShape';
 
 interface ShapeObjProps {
   shape: Shape;
@@ -31,6 +33,10 @@ export const ShapeObj: React.FC<ShapeObjProps> = (props) => {
       return <TriangleShape {...props} />;
     case 'polygon':
       return <PolygonShape {...props} />;
+    case 'angle':
+      return <AngleShape {...props} />;
+    case 'arc':
+      return <ArcShape {...props} />;
     default:
       return null;
   }

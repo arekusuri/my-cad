@@ -298,12 +298,49 @@ export function getShapeVertices(shape: Shape): Point[] {
                  vertices.push({ x: shape.x + rx, y: shape.y + ry });
             }
         }
+    } else if (shape.type === 'angle') {
+        // Angle has 3 points: vertex, edge1End, edge2End
+        if (shape.points && shape.points.length >= 6) {
+            const points = shape.points;
+            const rad = (shape.rotation * Math.PI) / 180;
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+            
+            for (let i = 0; i < 6; i += 2) {
+                const px = points[i];
+                const py = points[i+1];
+                
+                const rx = px * cos - py * sin;
+                const ry = px * sin + py * cos;
+                
+                vertices.push({ x: shape.x + rx, y: shape.y + ry });
+            }
+        }
     } else if (shape.type === 'circle') {
         // Center
         vertices.push({ x: shape.x, y: shape.y });
         // Maybe quadrants?
         // Right
         vertices.push({ x: shape.x + (shape.radius || 0), y: shape.y });
+    } else if (shape.type === 'arc') {
+        // Arc has center and two endpoints (start and end of arc)
+        const radius = shape.radius || 0;
+        const startAngle = (shape.startAngle || 0) * Math.PI / 180;
+        const sweepAngle = (shape.sweepAngle || 0) * Math.PI / 180;
+        const endAngle = startAngle + sweepAngle;
+        
+        // Center
+        vertices.push({ x: shape.x, y: shape.y });
+        // Start point
+        vertices.push({ 
+            x: shape.x + radius * Math.cos(startAngle), 
+            y: shape.y + radius * Math.sin(startAngle) 
+        });
+        // End point
+        vertices.push({ 
+            x: shape.x + radius * Math.cos(endAngle), 
+            y: shape.y + radius * Math.sin(endAngle) 
+        });
     }
     
     return vertices;
@@ -337,13 +374,116 @@ export function getShapeEdges(shape: Shape): [Point, Point][] {
                 edges.push([p1, p2]);
             }
         }
+    } else if (shape.type === 'angle') {
+        // Angle has 2 edges: vertex->edge1End and vertex->edge2End
+        const vertices = getShapeVertices(shape);
+        if (vertices.length >= 3) {
+            // Edge 1: vertex to edge1End
+            edges.push([vertices[0], vertices[1]]);
+            // Edge 2: vertex to edge2End
+            edges.push([vertices[0], vertices[2]]);
+        }
     }
+    // Arc doesn't have linear edges (it's curved), so we don't add edges for it
     
     return edges;
 }
 
 /**
+ * Find intersection points between a line segment and an arc.
+ * Returns 0, 1, or 2 intersection points.
+ */
+export function getLineArcIntersections(
+    lineStart: Point,
+    lineEnd: Point,
+    arcCenter: Point,
+    arcRadius: number,
+    arcStartAngle: number, // in degrees
+    arcSweepAngle: number  // in degrees
+): Point[] {
+    const intersections: Point[] = [];
+    
+    // Line direction vector
+    const dx = lineEnd.x - lineStart.x;
+    const dy = lineEnd.y - lineStart.y;
+    
+    // Vector from line start to circle center
+    const fx = lineStart.x - arcCenter.x;
+    const fy = lineStart.y - arcCenter.y;
+    
+    // Quadratic equation coefficients: at^2 + bt + c = 0
+    const a = dx * dx + dy * dy;
+    const b = 2 * (fx * dx + fy * dy);
+    const c = fx * fx + fy * fy - arcRadius * arcRadius;
+    
+    const discriminant = b * b - 4 * a * c;
+    
+    if (discriminant < 0 || a === 0) {
+        return intersections; // No intersection with circle
+    }
+    
+    const sqrtDisc = Math.sqrt(discriminant);
+    const t1 = (-b - sqrtDisc) / (2 * a);
+    const t2 = (-b + sqrtDisc) / (2 * a);
+    
+    // Convert arc angles to radians and normalize
+    const startAngleRad = arcStartAngle * Math.PI / 180;
+    const sweepAngleRad = arcSweepAngle * Math.PI / 180;
+    
+    // Helper to check if a point is on the arc
+    const isOnArc = (point: Point): boolean => {
+        const angle = Math.atan2(point.y - arcCenter.y, point.x - arcCenter.x);
+        
+        // Normalize angles to [0, 2π)
+        let normalizedAngle = angle;
+        let normalizedStart = startAngleRad;
+        
+        while (normalizedAngle < 0) normalizedAngle += 2 * Math.PI;
+        while (normalizedAngle >= 2 * Math.PI) normalizedAngle -= 2 * Math.PI;
+        while (normalizedStart < 0) normalizedStart += 2 * Math.PI;
+        while (normalizedStart >= 2 * Math.PI) normalizedStart -= 2 * Math.PI;
+        
+        if (sweepAngleRad >= 0) {
+            // Counter-clockwise arc
+            let endAngle = normalizedStart + sweepAngleRad;
+            if (endAngle > 2 * Math.PI) {
+                // Arc wraps around
+                return normalizedAngle >= normalizedStart || normalizedAngle <= endAngle - 2 * Math.PI;
+            }
+            return normalizedAngle >= normalizedStart && normalizedAngle <= endAngle;
+        } else {
+            // Clockwise arc
+            let endAngle = normalizedStart + sweepAngleRad;
+            if (endAngle < 0) {
+                // Arc wraps around
+                return normalizedAngle <= normalizedStart || normalizedAngle >= endAngle + 2 * Math.PI;
+            }
+            return normalizedAngle <= normalizedStart && normalizedAngle >= endAngle;
+        }
+    };
+    
+    // Check both potential intersection points
+    for (const t of [t1, t2]) {
+        // Check if intersection is on the line segment (t in [0, 1])
+        if (t >= 0 && t <= 1) {
+            const point = {
+                x: lineStart.x + t * dx,
+                y: lineStart.y + t * dy
+            };
+            
+            // Check if intersection is on the arc
+            if (isOnArc(point)) {
+                intersections.push(point);
+            }
+        }
+    }
+    
+    return intersections;
+}
+
+/**
  * Find all intersection points between a line segment and all edges of other shapes.
+ * Also checks intersections with arcs.
  */
 export function findLineIntersections(
     lineStart: Point,
@@ -356,6 +496,29 @@ export function findLineIntersections(
     shapes.forEach(shape => {
         if (excludeShapeId && shape.id === excludeShapeId) return;
         
+        // Check arc intersections
+        if (shape.type === 'arc' && shape.radius !== undefined && 
+            shape.startAngle !== undefined && shape.sweepAngle !== undefined) {
+            const arcIntersections = getLineArcIntersections(
+                lineStart, lineEnd,
+                { x: shape.x, y: shape.y },
+                shape.radius,
+                shape.startAngle,
+                shape.sweepAngle
+            );
+            arcIntersections.forEach(intersection => {
+                const distToStart = distance(intersection, lineStart);
+                const distToEnd = distance(intersection, lineEnd);
+                if (distToStart > 5 && distToEnd > 5) {
+                    const isDuplicate = intersections.some(p => distance(p, intersection) < 1);
+                    if (!isDuplicate) {
+                        intersections.push(intersection);
+                    }
+                }
+            });
+        }
+        
+        // Check edge intersections
         const edges = getShapeEdges(shape);
         edges.forEach(([p1, p2]) => {
             const intersection = getLineIntersection(lineStart, lineEnd, p1, p2);

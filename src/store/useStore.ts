@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 
-export type ShapeType = 'rectangle' | 'circle' | 'segment' | 'line' | 'triangle' | 'polygon';
+export type ShapeType = 'rectangle' | 'circle' | 'segment' | 'line' | 'triangle' | 'polygon' | 'angle' | 'arc';
 
 export interface AttachedPoint {
   id: string;
@@ -45,9 +45,13 @@ export interface Shape {
   showOrthocenter?: boolean;
   showCentroid?: boolean;
   lineType?: LineType;
+  /** For arc shapes: start angle in degrees */
+  startAngle?: number;
+  /** For arc shapes: sweep angle in degrees (can be negative for clockwise) */
+  sweepAngle?: number;
 }
 
-export type ToolType = 'select' | 'rectangle' | 'circle' | 'segment' | 'line' | 'triangle' | 'polygon' | 'eraser' | 'trim' | 'point' | 'zoom';
+export type ToolType = 'select' | 'rectangle' | 'circle' | 'segment' | 'line' | 'triangle' | 'polygon' | 'angle' | 'compass' | 'eraser' | 'trim' | 'point' | 'zoom';
 
 /** Viewport state for zoom/pan */
 export interface ViewportState {

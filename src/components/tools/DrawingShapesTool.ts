@@ -6,7 +6,7 @@ import { findClosestSnapPoint } from '../modes/AutoSnappingMode';
  * Drawing shapes tool - delegates to drawingTools for rect, circle, segment, line, triangle, polygon
  */
 export class DrawingShapesTool implements Tool {
-  readonly toolTypes = ['rectangle', 'circle', 'segment', 'line', 'triangle', 'polygon'] as const;
+  readonly toolTypes = ['rectangle', 'circle', 'segment', 'line', 'triangle', 'polygon', 'angle', 'compass'] as const;
   readonly cursorClass = 'cursor-crosshair';
 
   handleMouseDown(event: ToolEvent, context: ToolContext): ToolResult {

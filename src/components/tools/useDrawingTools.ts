@@ -6,6 +6,8 @@ import { RectangleDrawing } from '../shapes/rectangle/RectangleDrawing';
 import { SegmentDrawing, LineDrawing } from '../shapes/segment';
 import { PolygonDrawing } from '../shapes/polygon/PolygonDrawing';
 import { TriangleDrawing, type TriangleDrawState } from '../shapes/triangle/TriangleDrawing';
+import { AngleDrawing, type AngleDrawState } from '../shapes/angle/AngleDrawing';
+import { CompassDrawing, type CompassDrawState } from '../shapes/arc/CompassDrawing';
 import { type Point, findLineIntersections } from '../../utils/geometry';
 
 interface UseDrawingToolsProps {
@@ -51,6 +53,8 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         line: new LineDrawing(),
         polygon: new PolygonDrawing(),
         triangle: new TriangleDrawing(),
+        angle: new AngleDrawing(),
+        compass: new CompassDrawing(),
     });
     
     // Subscribe to tool state changes for re-rendering
@@ -132,6 +136,18 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         return segmentTool.getStartPoint();
     }, []);
     
+    // Get angle preview data (only when angle tool is active)
+    const getAnglePreview = useCallback((): { drawState: AngleDrawState | null; previewPoint: { x: number; y: number } | null } => {
+        const angleTool = toolsRef.current['angle'] as AngleDrawing;
+        return angleTool.getPreviewData();
+    }, []);
+    
+    // Get compass preview data (only when compass tool is active)
+    const getCompassPreview = useCallback((): { drawState: CompassDrawState | null; previewPoint: { x: number; y: number } | null } => {
+        const compassTool = toolsRef.current['compass'] as CompassDrawing;
+        return compassTool.getPreviewData();
+    }, []);
+    
     return {
         /** The currently active drawing tool (null if tool is not a shape tool) */
         activeTool,
@@ -147,6 +163,10 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         cancel,
         /** Get triangle preview data for rendering */
         getTrianglePreview,
+        /** Get angle preview data for rendering */
+        getAnglePreview,
+        /** Get compass preview data for rendering */
+        getCompassPreview,
         /** Get segment start point (for perpendicular snap) */
         getSegmentStartPoint,
     };
