@@ -8,7 +8,7 @@ import { calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from '
 import { setCursor } from '../cursor';
 import { updateAttachedSegments } from './TriangleAttachment';
 import { getCircumcenter } from './TriangleCircumcenter';
-import { getOrthocenter } from './TrianglePerpendicularFoot';
+import { getOrthocenter } from './TriangleOrthoCenter';
 import { getCentroid } from './TriangleCentroid';
 
 interface TriangleShapeProps {

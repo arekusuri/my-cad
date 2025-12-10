@@ -23,7 +23,7 @@ export {
     getAltitudeLength,
     calculatePerpendicularFoot,
     type PerpendicularFoot
-} from './TrianglePerpendicularFoot';
+} from './TriangleOrthoCenter';
 export {
     getCentroid,
     calculateCentroid,

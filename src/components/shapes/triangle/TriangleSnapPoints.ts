@@ -1,7 +1,7 @@
 import type { Shape } from '../../../store/useStore';
 import { registerSpecialSnapPointsProvider, type SpecialSnapPoint } from '../../../utils/shapeSnapPoints';
 import { getCircumcenterPoint } from './TriangleCircumcenter';
-import { getOrthocenter } from './TrianglePerpendicularFoot';
+import { getOrthocenter } from './TriangleOrthoCenter';
 import { getCentroid } from './TriangleCentroid';
 
 /**
