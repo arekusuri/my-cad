@@ -1,10 +1,10 @@
 import React from 'react';
-import { useStore } from '../store/useStore';
-import { RectangleProperties } from './shapes/rectangle/RectangleProperties';
-import { CircleProperties } from './shapes/circle/CircleProperties';
-import { SegmentProperties } from './shapes/segment/SegmentProperties';
-import { TriangleProperties } from './shapes/triangle/TriangleProperties';
-import { PolygonProperties } from './shapes/polygon/PolygonProperties';
+import { useStore } from '../../store/useStore';
+import { RectangleProperties } from '../shapes/rectangle/RectangleProperties';
+import { CircleProperties } from '../shapes/circle/CircleProperties';
+import { SegmentProperties } from '../shapes/segment/SegmentProperties';
+import { TriangleProperties } from '../shapes/triangle/TriangleProperties';
+import { PolygonProperties } from '../shapes/polygon/PolygonProperties';
 import { X } from 'lucide-react';
 
 export const Properties: React.FC = () => {
@@ -88,3 +88,4 @@ export const Properties: React.FC = () => {
     </div>
   );
 };
+

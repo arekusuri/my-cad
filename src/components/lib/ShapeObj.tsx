@@ -1,11 +1,11 @@
 import React from 'react';
-import type { Shape } from '../store/useStore';
+import type { Shape } from '../../store/useStore';
 import Konva from 'konva';
-import { RectangleShape } from './shapes/rectangle/RectangleShape';
-import { CircleShape } from './shapes/circle/CircleShape';
-import { SegmentShape, LineShape } from './shapes/segment';
-import { TriangleShape } from './shapes/triangle/TriangleShape';
-import { PolygonShape } from './shapes/polygon/PolygonShape';
+import { RectangleShape } from '../shapes/rectangle/RectangleShape';
+import { CircleShape } from '../shapes/circle/CircleShape';
+import { SegmentShape, LineShape } from '../shapes/segment';
+import { TriangleShape } from '../shapes/triangle/TriangleShape';
+import { PolygonShape } from '../shapes/polygon/PolygonShape';
 
 interface ShapeObjProps {
   shape: Shape;
@@ -35,3 +35,4 @@ export const ShapeObj: React.FC<ShapeObjProps> = (props) => {
       return null;
   }
 };
+

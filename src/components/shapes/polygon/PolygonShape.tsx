@@ -3,9 +3,9 @@ import { RegularPolygon, Transformer, Line, Circle } from 'react-konva';
 import type { Shape } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
 import Konva from 'konva';
-import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops';
+import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../../lib/CommonShape_ops';
 import { getPolygonTransformAttrs, calculateVertexDrag, calculateVertexPos, getPolyTransformAttrs } from './PolygonShape_ops';
-import { setCursor } from '../cursor';
+import { setCursor } from '../../lib/cursor';
 import { updateAttachedSegments } from './PolygonAttachment';
 
 interface PolygonShapeProps {

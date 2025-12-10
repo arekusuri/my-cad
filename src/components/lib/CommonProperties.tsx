@@ -37,3 +37,4 @@ export const CommonProperties: React.FC<CommonPropertiesProps> = ({ shape, updat
     </>
   );
 };
+

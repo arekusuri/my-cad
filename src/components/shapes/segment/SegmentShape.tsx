@@ -3,9 +3,9 @@ import { Line, Transformer, Circle } from 'react-konva';
 import type { Shape, LineType } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
 import Konva from 'konva';
-import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops';
+import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../../lib/CommonShape_ops';
 import { getPolyTransformAttrs, calculateVertexDrag, calculateVertexPos } from './SegmentShape_ops';
-import { setCursor } from '../cursor';
+import { setCursor } from '../../lib/cursor';
 
 /**
  * Get dash pattern for a line type, scaled by viewport

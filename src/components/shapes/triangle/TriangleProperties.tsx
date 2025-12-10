@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Shape } from '../../../store/useStore';
-import { CommonProperties } from '../CommonProperties';
+import { CommonProperties } from '../../lib/CommonProperties';
 
 interface TrianglePropertiesProps {
   shape: Shape;

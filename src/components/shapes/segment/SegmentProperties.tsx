@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Shape, LineType } from '../../../store/useStore';
-import { CommonProperties } from '../CommonProperties';
+import { CommonProperties } from '../../lib/CommonProperties';
 
 const LINE_TYPES: { value: LineType; label: string }[] = [
   { value: 'solid', label: 'Solid' },

@@ -1,23 +1,23 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Stage, Layer, Circle as KonvaCircle, Line } from 'react-konva';
-import { useStore, type Shape, type AttachedPoint } from '../store/useStore';
-import { ShapeObj } from './ShapeObj';
+import { useStore, type Shape, type AttachedPoint } from './store/useStore';
+import { ShapeObj } from './components/lib/ShapeObj';
 import Konva from 'konva';
-import { getShapeVertices, getShapeMidpoints, type Point } from '../utils/geometry';
-import { getShapeSpecialSnapPoints } from '../utils/shapeSnapPoints';
-import { registerAllShapeSnapPoints } from '../utils/shapeSnapPointsSetup';
-import { SnapPointHighlight, useVertexDrag, type SnapPoint } from './modes/AutoSnappingMode';
-import { OrthoAxesOverlay } from './modes/OrthoMode.tsx';
-import { useZoomMode, ZoomBoxOverlay } from './modes/ZoomMode';
-import { useSelectionMode, SelectionBoxOverlay } from './modes/SelectionMode';
-import { useDrawingTools } from './tools/useDrawingTools';
-import type { SnapPointInfo } from './tools/DrawingTool';
-import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot, getPerpendicularExtension, type EdgeExtensionInfo } from './shapes/triangle';
-import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './shapes/polygon';
-import { Grid } from './Grid';
-import { handleTrim } from './tools/Trim';
-import { toolManager } from './tools/ToolManager';
-import type { ToolContext, ToolEvent } from './tools/ToolInterface';
+import { getShapeVertices, getShapeMidpoints, type Point } from './utils/geometry';
+import { getShapeSpecialSnapPoints } from './utils/shapeSnapPoints';
+import { registerAllShapeSnapPoints } from './utils/shapeSnapPointsSetup';
+import { SnapPointHighlight, useVertexDrag, type SnapPoint } from './components/modes/AutoSnappingMode';
+import { OrthoAxesOverlay } from './components/modes/OrthoMode.tsx';
+import { useZoomMode, ZoomBoxOverlay } from './components/modes/ZoomMode';
+import { useSelectionMode, SelectionBoxOverlay } from './components/modes/SelectionMode';
+import { useDrawingTools } from './components/tools/useDrawingTools';
+import type { SnapPointInfo } from './components/tools/DrawingTool';
+import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot, getPerpendicularExtension, type EdgeExtensionInfo } from './components/shapes/triangle';
+import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './components/shapes/polygon';
+import { Grid } from './components/lib/Grid';
+import { handleTrim } from './components/tools/Trim';
+import { toolManager } from './components/tools/ToolManager';
+import type { ToolContext, ToolEvent } from './components/tools/ToolInterface';
 
 // Register all shape special snap point providers
 registerAllShapeSnapPoints();
@@ -535,3 +535,4 @@ export const Canvas: React.FC = () => {
     </Stage>
   );
 };
+

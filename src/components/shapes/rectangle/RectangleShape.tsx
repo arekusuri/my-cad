@@ -3,9 +3,9 @@ import { Rect, Transformer, Circle } from 'react-konva';
 import type { Shape } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
 import Konva from 'konva';
-import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../CommonShape_ops';
+import { commonDragBoundFunc, limitResizeBoundBoxFunc } from '../../lib/CommonShape_ops';
 import { getRectangleTransformAttrs, getRectangleCornerPositions, calculateRectangleFromDrag } from './RectangleShape_ops';
-import { setCursor } from '../cursor';
+import { setCursor } from '../../lib/cursor';
 
 interface RectangleShapeProps {
   shape: Shape;

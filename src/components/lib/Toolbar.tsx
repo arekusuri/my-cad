@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStore, type ToolType } from '../store/useStore';
+import { useStore, type ToolType } from '../../store/useStore';
 import { MousePointer2, Square, Circle, Eraser, Scissors, Triangle, Hexagon, MapPin, ZoomIn, Maximize } from 'lucide-react';
 
 // Custom segment icon: 30-degree angled line with points on both ends

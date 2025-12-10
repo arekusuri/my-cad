@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { Canvas } from './components/Canvas';
-import { Toolbar } from './components/Toolbar';
-import { Properties } from './components/Properties';
+import { Canvas } from './Canvas';
+import { Toolbar } from './components/lib/Toolbar';
+import { Properties } from './components/lib/Properties';
 import { useStore } from './store/useStore';
 
 function App() {
