@@ -224,7 +224,7 @@ export const Canvas: React.FC = () => {
           if (excludeShapeId && shape.id === excludeShapeId) return;
           
           const edges = getShapeEdges(shape);
-          edges.forEach(([p1, p2]) => {
+          edges.forEach(([p1, p2], edgeIndex) => {
               arcs.forEach(arc => {
                   if (excludeShapeId && arc.id === excludeShapeId) return;
                   if (arc.id === shape.id) return; // Don't check shape against itself
@@ -241,7 +241,16 @@ export const Canvas: React.FC = () => {
                       const d = Math.sqrt(Math.pow(intersection.x - x, 2) + Math.pow(intersection.y - y, 2));
                       if (d < minDist) {
                           minDist = d;
-                          closest = { x: intersection.x, y: intersection.y, shapeId: arc.id, type: 'intersection', index: i };
+                          // Store both arc and edge-containing shape info for intersection attachments
+                          closest = { 
+                              x: intersection.x, 
+                              y: intersection.y, 
+                              shapeId: arc.id, 
+                              type: 'intersection', 
+                              index: edgeIndex,
+                              secondaryShapeId: shape.id,
+                              intersectionIndex: i
+                          };
                       }
                   });
               });

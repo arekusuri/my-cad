@@ -15,31 +15,26 @@ export const RectangleProperties: React.FC<RectanglePropertiesProps> = ({ shape,
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Header removed, now handled in parent Properties.tsx */}
-      
+    <div className="flex flex-col gap-2">
       <CommonProperties shape={shape} updateShape={updateShape} deleteShape={deleteShape} />
-
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-sm">Width</label>
+      <div className="grid grid-cols-2 gap-1.5 items-center">
+        <label className="text-xs text-gray-600">Width</label>
         <input 
           type="number" 
           name="width" 
           value={Math.round(shape.width || 0)} 
           onChange={handleChange} 
-          className="border rounded px-2 py-1"
+          className="border rounded px-1.5 py-0.5 text-xs w-full"
         />
-        <label className="text-sm">Height</label>
+        <label className="text-xs text-gray-600">Height</label>
         <input 
           type="number" 
           name="height" 
           value={Math.round(shape.height || 0)} 
           onChange={handleChange} 
-          className="border rounded px-2 py-1"
+          className="border rounded px-1.5 py-0.5 text-xs w-full"
         />
       </div>
-      
-       {/* Delete button removed */}
     </div>
   );
 };

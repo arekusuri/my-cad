@@ -29,17 +29,17 @@ interface SegmentPropertiesProps {
 
 export const SegmentProperties: React.FC<SegmentPropertiesProps> = ({ shape, updateShape, deleteShape }) => {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       <CommonProperties shape={shape} updateShape={updateShape} deleteShape={deleteShape} />
       
       {/* Color */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-        <div className="flex items-center gap-2">
+      <div className="grid grid-cols-2 gap-1.5 items-center">
+        <label className="text-xs text-gray-600">Color</label>
+        <div className="flex items-center gap-1">
           <select
             value={shape.stroke}
             onChange={(e) => updateShape(shape.id, { stroke: e.target.value })}
-            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+            className="flex-1 border rounded px-1 py-0.5 text-xs"
           >
             {COLORS.map((c) => (
               <option key={c.value} value={c.value}>
@@ -48,19 +48,19 @@ export const SegmentProperties: React.FC<SegmentPropertiesProps> = ({ shape, upd
             ))}
           </select>
           <div 
-            className="w-6 h-6 rounded border border-gray-300"
+            className="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
             style={{ backgroundColor: shape.stroke }}
           />
         </div>
       </div>
       
       {/* Line Type */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Line Type</label>
+      <div className="grid grid-cols-2 gap-1.5 items-center">
+        <label className="text-xs text-gray-600">Line</label>
         <select
           value={shape.lineType || 'solid'}
           onChange={(e) => updateShape(shape.id, { lineType: e.target.value as LineType })}
-          className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+          className="border rounded px-1 py-0.5 text-xs w-full"
         >
           {LINE_TYPES.map((lt) => (
             <option key={lt.value} value={lt.value}>

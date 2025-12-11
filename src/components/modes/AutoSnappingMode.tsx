@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Circle as KonvaCircle, RegularPolygon, Rect, Line } from 'react-konva';
 import { type Shape } from '../../store/useStore';
-import { getShapeVertices, getShapeMidpoints } from '../../utils/geometry';
+import { getShapeVertices, getShapeMidpoints, getShapeEdges, getLineArcIntersections } from '../../utils/geometry';
 import { getShapeSpecialSnapPoints } from '../../utils/shapeSnapPoints';
 import { constrainLineToOrtho } from './OrthoMode';
 import { calculatePerpendicularFoot } from '../shapes/segment/PerpendicularFoot';
@@ -76,7 +76,7 @@ export interface SnapPoint {
     index: number;
     x: number;
     y: number;
-    type: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter' | 'perpendicular';
+    type: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter' | 'perpendicular' | 'intersection';
     /** For perpendicular on extension: the edge endpoint to draw extension line from */
     extensionFrom?: { x: number; y: number };
 }
@@ -161,6 +161,33 @@ export const SnapPointHighlight: React.FC<SnapPointHighlightProps> = ({ hoveredS
                 fill="transparent"
                 listening={false}
             />
+        );
+    }
+    
+    // Intersection point (arc-edge intersection) - orange X marker
+    if (hoveredSnapPoint.type === 'intersection') {
+        const size = 6 / viewportScale;
+        return (
+            <>
+                <Line
+                    points={[
+                        hoveredSnapPoint.x - size, hoveredSnapPoint.y - size,
+                        hoveredSnapPoint.x + size, hoveredSnapPoint.y + size
+                    ]}
+                    stroke="#f97316"
+                    strokeWidth={strokeWidth}
+                    listening={false}
+                />
+                <Line
+                    points={[
+                        hoveredSnapPoint.x - size, hoveredSnapPoint.y + size,
+                        hoveredSnapPoint.x + size, hoveredSnapPoint.y - size
+                    ]}
+                    stroke="#f97316"
+                    strokeWidth={strokeWidth}
+                    listening={false}
+                />
+            </>
         );
     }
 
@@ -273,6 +300,43 @@ export const findClosestSnapPoint = (
             }
         }
     });
+    
+    // Check for intersections between arcs and edges from other shapes
+    const arcs = shapes.filter(s => s.type === 'arc' && s.radius !== undefined && 
+        s.startAngle !== undefined && s.sweepAngle !== undefined);
+    
+    shapes.forEach(shape => {
+        const edges = getShapeEdges(shape);
+        edges.forEach(([p1, p2]) => {
+            arcs.forEach(arc => {
+                // Don't check arc against itself
+                if (arc.id === shape.id) return;
+                
+                const arcIntersections = getLineArcIntersections(
+                    p1, p2,
+                    { x: arc.x, y: arc.y },
+                    arc.radius!,
+                    arc.startAngle!,
+                    arc.sweepAngle!
+                );
+                
+                arcIntersections.forEach((intersection, i) => {
+                    const d = Math.sqrt(Math.pow(intersection.x - pos.x, 2) + Math.pow(intersection.y - pos.y, 2));
+                    if (d < minDist) {
+                        minDist = d;
+                        closest = { 
+                            shapeId: arc.id, 
+                            index: i, 
+                            x: intersection.x, 
+                            y: intersection.y, 
+                            type: 'intersection' 
+                        };
+                    }
+                });
+            });
+        });
+    });
+    
     return closest;
 };
 

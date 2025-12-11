@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Rect, Circle } from 'react-konva';
-import { useStore } from '../../../store/useStore';
+import { useStore, type Shape } from '../../../store/useStore';
 import { getRectangleCornerPositions, calculateRectangleFromDrag } from './RectangleShape_ops';
 import { BaseShape, getBindProps } from '../BaseShape';
 import type { BaseShapeProps } from '../BaseShapeProps';
+import { updateAttachedArcs } from '../arc/ArcAttachment';
 
 export const RectangleShape: React.FC<BaseShapeProps> = (props) => {
   const { shape, onChange } = props;
@@ -11,11 +12,20 @@ export const RectangleShape: React.FC<BaseShapeProps> = (props) => {
   const tool = useStore((state) => state.tool);
   const vertexEditMode = useStore((state) => state.vertexEditMode);
   const viewportScale = useStore((state) => state.viewport.scale);
+  const shapes = useStore((state) => state.shapes);
+  const updateShapeStore = useStore((state) => state.updateShape);
 
   const corners = vertexEditMode ? getRectangleCornerPositions(shape) : [];
 
+  // Update arcs attached to intersections involving this rectangle
+  const handleDragMove = useCallback((x: number, y: number) => {
+    const tempShape: Shape = { ...shape, x, y };
+    const arcUpdates = updateAttachedArcs(tempShape, shapes);
+    Object.entries(arcUpdates).forEach(([id, attrs]) => updateShapeStore(id, attrs));
+  }, [shape, shapes, updateShapeStore]);
+
   return (
-    <BaseShape {...props}>
+    <BaseShape {...props} onDragMove={handleDragMove}>
       {(base) => (
         <>
           <Rect

@@ -10,24 +10,17 @@ interface CompassPreviewProps {
 /**
  * Preview component for the compass tool while drawing.
  * Shows helper elements during drawing:
- * - Center point
- * - Circle guide (dotted)
- * - Start/end points
- * - Arc preview
- * These are only visible during drawing, not on the final shape.
+ * - Center point (red dot)
+ * - Dashed circle guide showing the radius
+ * - Start point (green dot)
+ * - End point preview (orange dot)
+ * - Arc preview (solid line)
  */
 export const CompassPreview: React.FC<CompassPreviewProps> = ({ getPreviewData }) => {
   const { drawState, previewPoint } = getPreviewData();
   if (!drawState) return null;
   
-  const { center, radiusPoint, radius: storedRadius, startPoint } = drawState;
-  
-  // Calculate radius - use stored radius if available, otherwise calculate from preview
-  const radius = storedRadius 
-    ? storedRadius
-    : radiusPoint 
-      ? Math.sqrt(Math.pow(radiusPoint.x - center.x, 2) + Math.pow(radiusPoint.y - center.y, 2))
-      : (previewPoint ? Math.sqrt(Math.pow(previewPoint.x - center.x, 2) + Math.pow(previewPoint.y - center.y, 2)) : 0);
+  const { center, radius, startPoint } = drawState;
   
   // Calculate angles for arc preview
   let startAngle = 0;
@@ -43,40 +36,37 @@ export const CompassPreview: React.FC<CompassPreviewProps> = ({ getPreviewData }
     if (sweepAngle < -180) sweepAngle += 360;
   }
   
-  // "Waiting mode" = radius is set but no start point yet (between arcs)
-  const isWaitingForNextArc = radiusPoint && !startPoint;
-  
   return (
     <>
-      {/* Center point - small indicator */}
+      {/* Center point - red indicator */}
       <Circle
         x={center.x}
         y={center.y}
-        radius={3}
+        radius={4}
         fill="#ef4444"
+        stroke="#dc2626"
+        strokeWidth={1}
         listening={false}
       />
       
-      {/* Radius line (from center to preview point when setting radius) */}
-      {previewPoint && !radiusPoint && (
+      {/* Dashed circle guide showing the full radius */}
+      <Circle
+        x={center.x}
+        y={center.y}
+        radius={radius}
+        stroke="#6b7280"
+        strokeWidth={1}
+        dash={[8, 4]}
+        listening={false}
+      />
+      
+      {/* Radius line from center to preview point */}
+      {previewPoint && !startPoint && (
         <Line
           points={[center.x, center.y, previewPoint.x, previewPoint.y]}
-          stroke="#666"
+          stroke="#9ca3af"
           strokeWidth={1}
-          dash={[6, 4]}
-          listening={false}
-        />
-      )}
-      
-      {/* Circle guide (dotted) - semi-transparent so it doesn't obscure drawn arcs */}
-      {radiusPoint && radius > 0 && (
-        <Circle
-          x={center.x}
-          y={center.y}
-          radius={radius}
-          stroke="rgba(150, 150, 150, 0.4)"
-          strokeWidth={1}
-          dash={[6, 4]}
+          dash={[4, 4]}
           listening={false}
         />
       )}
@@ -91,7 +81,7 @@ export const CompassPreview: React.FC<CompassPreviewProps> = ({ getPreviewData }
           angle={Math.abs(sweepAngle)}
           rotation={sweepAngle >= 0 ? startAngle : startAngle + sweepAngle}
           stroke="black"
-          strokeWidth={1}
+          strokeWidth={2}
           listening={false}
         />
       )}
@@ -101,22 +91,22 @@ export const CompassPreview: React.FC<CompassPreviewProps> = ({ getPreviewData }
         <Circle
           x={startPoint.x}
           y={startPoint.y}
-          radius={4}
+          radius={5}
           fill="#22c55e"
-          stroke="#22c55e"
+          stroke="#16a34a"
           strokeWidth={1}
           listening={false}
         />
       )}
       
-      {/* Preview endpoint on circle */}
-      {previewPoint && radiusPoint && !isWaitingForNextArc && (
+      {/* Preview endpoint on circle (blue when setting start, orange when drawing arc) */}
+      {previewPoint && (
         <Circle
           x={previewPoint.x}
           y={previewPoint.y}
-          radius={4}
+          radius={5}
           fill={startPoint ? "#f97316" : "#3b82f6"}
-          stroke={startPoint ? "#f97316" : "#3b82f6"}
+          stroke={startPoint ? "#ea580c" : "#2563eb"}
           strokeWidth={1}
           listening={false}
         />
@@ -124,4 +114,3 @@ export const CompassPreview: React.FC<CompassPreviewProps> = ({ getPreviewData }
     </>
   );
 };
-

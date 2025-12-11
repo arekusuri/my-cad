@@ -1,14 +1,13 @@
 import type { DrawingTool, DrawingContext, DrawingMouseEvent, DrawingResult, SnapPointInfo } from '../../tools/DrawingTool';
 import { v4 as uuidv4 } from 'uuid';
+import { getCompassRadius } from '../../lib/CompassRuler';
 
 export interface CompassDrawState {
-    /** Step 1: Center point */
+    /** Center point (set on first click) */
     center: { x: number; y: number };
-    /** Step 2: Radius (distance from center to this point) */
-    radiusPoint?: { x: number; y: number };
-    /** Calculated radius value */
-    radius?: number;
-    /** Current arc's start point (resets after each arc is drawn) */
+    /** Pre-set radius from the ruler */
+    radius: number;
+    /** Current arc's start point */
     startPoint?: { x: number; y: number };
     /** Group ID for all arcs in this compass session */
     groupId: string;
@@ -17,13 +16,14 @@ export interface CompassDrawState {
 }
 
 /**
- * Compass tool for drawing arcs using continuous click interaction.
- * - Click 1: Set center point
- * - Click 2: Set radius (by clicking a point at desired distance)
- * - Click 3: Set arc start point
- * - Click 4: Set arc end point and draw arc (keeps center/radius)
- * - Click 5+: Continue drawing more arcs (every 2 clicks = 1 arc)
- * - Escape or Right-click: Stop drawing
+ * Compass tool for drawing arcs with pre-set radius from ruler.
+ * Workflow:
+ * 1. Set radius on the ruler (before clicking)
+ * 2. Click to place center point (shows dashed circle)
+ * 3. Click to set arc start point
+ * 4. Click to set arc end point (draws arc)
+ * 5. Repeat 3-4 for more arcs
+ * 6. Right-click or Escape to finish
  */
 export class CompassDrawing implements DrawingTool {
     readonly name = 'compass';
@@ -36,7 +36,7 @@ export class CompassDrawing implements DrawingTool {
     }
     
     handleMouseDown(e: DrawingMouseEvent, ctx: DrawingContext): DrawingResult {
-        // Right click cancels the operation
+        // Right click cancels/finishes the operation
         if (e.button === 2) {
             this.cancel();
             return { handled: true, finished: true };
@@ -54,7 +54,7 @@ export class CompassDrawing implements DrawingTool {
             if (snapInfo) {
                 x = snapInfo.x;
                 y = snapInfo.y;
-                // Only store snap info for center point (first click)
+                // Store snap info for center point (first click)
                 if (!this.drawState) {
                     centerSnapInfo = snapInfo;
                 }
@@ -65,26 +65,20 @@ export class CompassDrawing implements DrawingTool {
         }
         
         if (!this.drawState) {
-            // First click: set center point (generate groupId for this session)
-            this.drawState = { center: { x, y }, groupId: uuidv4(), centerSnapInfo };
-            this.previewPoint = { x, y };
-            return { handled: true };
-        } else if (!this.drawState.radiusPoint) {
-            // Second click: set radius
-            const { center } = this.drawState;
-            const radius = Math.sqrt(
-                Math.pow(x - center.x, 2) + 
-                Math.pow(y - center.y, 2)
-            );
-            this.drawState = { ...this.drawState, radiusPoint: { x, y }, radius };
+            // First click: set center point with pre-set radius from ruler
+            const radius = getCompassRadius();
+            this.drawState = { 
+                center: { x, y }, 
+                radius,
+                groupId: uuidv4(), 
+                centerSnapInfo 
+            };
             this.previewPoint = { x, y };
             return { handled: true };
         } else if (!this.drawState.startPoint) {
-            // Odd click (3, 5, 7...): set arc start point
+            // Second click: set arc start point
             // Snap to the circle at the current angle
             const { center, radius } = this.drawState;
-            if (!radius) return { handled: false };
-            
             const angle = Math.atan2(y - center.y, x - center.x);
             const startPoint = {
                 x: center.x + radius * Math.cos(angle),
@@ -95,9 +89,8 @@ export class CompassDrawing implements DrawingTool {
             this.previewPoint = startPoint;
             return { handled: true };
         } else {
-            // Even click (4, 6, 8...): complete the arc and continue
+            // Third+ click: complete the arc and prepare for next
             const { center, radius, startPoint } = this.drawState;
-            if (!radius) return { handled: false };
             
             // Calculate angles
             const startAngle = Math.atan2(startPoint.y - center.y, startPoint.x - center.x);
@@ -125,11 +118,32 @@ export class CompassDrawing implements DrawingTool {
             // Create arc shape with groupId so all arcs from this session are linked
             // Include centerAttachment if center was snapped to a point
             const { centerSnapInfo } = this.drawState;
-            const centerAttachment = centerSnapInfo && centerSnapInfo.type !== 'perpendicular' ? {
-                targetShapeId: centerSnapInfo.shapeId,
-                attachType: centerSnapInfo.type as 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter',
-                targetIndex: centerSnapInfo.index,
-            } : undefined;
+            let centerAttachment: {
+                targetShapeId: string;
+                attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter' | 'intersection';
+                targetIndex: number;
+                secondaryShapeId?: string;
+                intersectionIndex?: number;
+            } | undefined;
+            
+            if (centerSnapInfo && centerSnapInfo.type !== 'perpendicular') {
+                if (centerSnapInfo.type === 'intersection') {
+                    // For intersection attachments, store info about both shapes
+                    centerAttachment = {
+                        targetShapeId: centerSnapInfo.shapeId,
+                        attachType: 'intersection',
+                        targetIndex: centerSnapInfo.index,
+                        secondaryShapeId: centerSnapInfo.secondaryShapeId,
+                        intersectionIndex: centerSnapInfo.intersectionIndex ?? 0,
+                    };
+                } else {
+                    centerAttachment = {
+                        targetShapeId: centerSnapInfo.shapeId,
+                        attachType: centerSnapInfo.type as 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter',
+                        targetIndex: centerSnapInfo.index,
+                    };
+                }
+            }
             
             ctx.addShape({
                 type: 'arc',
@@ -147,7 +161,6 @@ export class CompassDrawing implements DrawingTool {
             // Reset startPoint but keep center, radius, groupId, and centerSnapInfo for more arcs
             this.drawState = { 
                 center: this.drawState.center, 
-                radiusPoint: this.drawState.radiusPoint,
                 radius: this.drawState.radius,
                 groupId: this.drawState.groupId,
                 centerSnapInfo: this.drawState.centerSnapInfo,
@@ -179,26 +192,21 @@ export class CompassDrawing implements DrawingTool {
             }
         }
         
-        // If we have radius set, snap preview to the circle
-        if (this.drawState.radius) {
-            const { center, radius } = this.drawState;
-            const angle = Math.atan2(y - center.y, x - center.x);
-            
-            // Shift key snaps to 15° increments (only when setting start point)
-            let snappedAngle = angle;
-            if (e.shiftKey && !this.drawState.startPoint) {
-                const snapAngle = Math.PI / 12; // 15 degrees
-                snappedAngle = Math.round(angle / snapAngle) * snapAngle;
-            }
-            
-            // Always snap to circle after radius is confirmed
-            this.previewPoint = {
-                x: center.x + radius * Math.cos(snappedAngle),
-                y: center.y + radius * Math.sin(snappedAngle)
-            };
-        } else {
-            this.previewPoint = { x, y };
+        const { center, radius } = this.drawState;
+        const angle = Math.atan2(y - center.y, x - center.x);
+        
+        // Shift key snaps to 15° increments (only when setting start point)
+        let snappedAngle = angle;
+        if (e.shiftKey && !this.drawState.startPoint) {
+            const snapAngle = Math.PI / 12; // 15 degrees
+            snappedAngle = Math.round(angle / snapAngle) * snapAngle;
         }
+        
+        // Always snap preview to circle
+        this.previewPoint = {
+            x: center.x + radius * Math.cos(snappedAngle),
+            y: center.y + radius * Math.sin(snappedAngle)
+        };
         
         return { handled: true };
     }
@@ -220,4 +228,3 @@ export class CompassDrawing implements DrawingTool {
         };
     }
 }
-

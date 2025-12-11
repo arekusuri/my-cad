@@ -15,23 +15,18 @@ export const CircleProperties: React.FC<CirclePropertiesProps> = ({ shape, updat
   };
 
   return (
-    <div className="flex flex-col gap-4">
-       {/* Header removed */}
-      
+    <div className="flex flex-col gap-2">
       <CommonProperties shape={shape} updateShape={updateShape} deleteShape={deleteShape} />
-
-      <div className="grid grid-cols-2 gap-2">
-         <label className="text-sm">Radius</label>
+      <div className="grid grid-cols-2 gap-1.5 items-center">
+         <label className="text-xs text-gray-600">Radius</label>
          <input 
           type="number" 
           name="radius" 
           value={Math.round(shape.radius || 0)} 
           onChange={handleChange} 
-          className="border rounded px-2 py-1"
+          className="border rounded px-1.5 py-0.5 text-xs w-full"
         />
       </div>
-
-       {/* Delete button removed */}
     </div>
   );
 };

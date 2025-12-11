@@ -7,8 +7,12 @@ export interface SnapPointInfo {
     x: number;
     y: number;
     shapeId: string;
-    type: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter' | 'perpendicular';
+    type: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter' | 'perpendicular' | 'intersection';
     index: number;
+    /** For intersection attachments: the secondary shape involved (edge-containing shape) */
+    secondaryShapeId?: string;
+    /** For intersection attachments: which intersection point (0 or 1) */
+    intersectionIndex?: number;
 }
 
 /**

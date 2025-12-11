@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Canvas } from './Canvas';
 import { Toolbar } from './components/lib/Toolbar';
 import { Properties } from './components/lib/Properties';
+import { CompassRuler, setCompassRadius, getCompassRadius } from './components/lib/CompassRuler';
 import { useStore } from './store/useStore';
 
 function App() {
@@ -9,6 +10,15 @@ function App() {
   const setAltPressed = useStore((state) => state.setAltPressed);
   const deleteShape = useStore((state) => state.deleteShape);
   const selectedIds = useStore((state) => state.selectedIds);
+  const tool = useStore((state) => state.tool);
+  
+  // Compass radius state (synced with global)
+  const [compassRadius, setLocalCompassRadius] = useState(getCompassRadius());
+  
+  const handleRadiusChange = useCallback((radius: number) => {
+    setLocalCompassRadius(radius);
+    setCompassRadius(radius);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -48,6 +58,14 @@ function App() {
       <Toolbar />
       <Properties />
       <Canvas />
+      {/* Compass ruler - show when compass tool is selected */}
+      {tool === 'compass' && (
+        <CompassRuler 
+          radius={compassRadius}
+          onRadiusChange={handleRadiusChange}
+          isDrawing={false}
+        />
+      )}
     </div>
   );
 }

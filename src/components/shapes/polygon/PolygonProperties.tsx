@@ -10,10 +10,8 @@ interface PolygonPropertiesProps {
 
 export const PolygonProperties: React.FC<PolygonPropertiesProps> = ({ shape, updateShape, deleteShape }) => {
   return (
-    <div className="flex flex-col gap-4">
-       {/* Header removed */}
+    <div className="flex flex-col gap-2">
       <CommonProperties shape={shape} updateShape={updateShape} deleteShape={deleteShape} />
-       {/* Delete button removed */}
     </div>
   );
 };

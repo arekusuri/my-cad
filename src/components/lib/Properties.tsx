@@ -10,8 +10,8 @@ import { X } from 'lucide-react';
 export const Properties: React.FC = () => {
   const { selectedIds, shapes, updateShape, deleteShape, selectShape } = useStore();
   
-  // "Actual panel" style: right sidebar, full height, persistent
-  const panelClasses = "fixed right-0 top-0 h-full w-64 bg-white shadow-lg border-l border-gray-200 p-4 overflow-y-auto z-20";
+  // Compact floating panel - top right corner, minimal height
+  const panelClasses = "fixed right-4 top-4 w-56 bg-white shadow-lg rounded-lg border border-gray-200 p-3 z-20 max-h-[80vh] overflow-y-auto";
 
   // Stop propagation to prevent clicks from reaching the canvas and deselecting
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -29,16 +29,16 @@ export const Properties: React.FC = () => {
   if (selectedIds.length > 1) {
     return (
       <div className={panelClasses} onMouseDown={handleMouseDown}>
-        <div className="flex justify-between items-center border-b pb-2 mb-4">
-            <h3 className="font-bold">Properties</h3>
-            <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
-                <X size={20} />
+        <div className="flex justify-between items-center border-b pb-1.5 mb-2">
+            <h3 className="font-semibold text-sm text-gray-700">Properties</h3>
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
             </button>
         </div>
-        <p className="text-gray-500">{selectedIds.length} shapes selected</p>
+        <p className="text-gray-500 text-xs">{selectedIds.length} shapes selected</p>
         <button 
           onClick={() => selectedIds.forEach(id => deleteShape(id))}
-          className="bg-red-50 text-red-600 px-4 py-2 rounded hover:bg-red-100 mt-2 w-full"
+          className="bg-red-50 text-red-600 px-3 py-1.5 rounded text-xs hover:bg-red-100 mt-2 w-full"
         >
           Delete All
         </button>
@@ -78,10 +78,10 @@ export const Properties: React.FC = () => {
 
   return (
     <div className={panelClasses} onMouseDown={handleMouseDown}>
-        <div className="flex justify-between items-center border-b pb-2 mb-4">
-            <h3 className="font-bold">Properties</h3>
-            <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
-                <X size={20} />
+        <div className="flex justify-between items-center border-b pb-1.5 mb-2">
+            <h3 className="font-semibold text-sm text-gray-700">Properties</h3>
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
             </button>
         </div>
       {renderProperties()}

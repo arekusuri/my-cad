@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Line, Circle, Arc } from 'react-konva';
-import { useStore } from '../../../store/useStore';
+import { useStore, type Shape } from '../../../store/useStore';
 import { BaseShape, getBindProps } from '../BaseShape';
 import type { BaseShapeProps } from '../BaseShapeProps';
+import { updateAttachedArcs } from '../arc/ArcAttachment';
 
 function calculateArcParams(edge1End: { x: number; y: number }, edge2End: { x: number; y: number }) {
   const angle1 = Math.atan2(edge1End.y, edge1End.x);
@@ -16,6 +17,15 @@ function calculateArcParams(edge1End: { x: number; y: number }, edge2End: { x: n
 export const AngleShape: React.FC<BaseShapeProps> = (props) => {
   const { shape } = props;
   const viewportScale = useStore((state) => state.viewport.scale);
+  const shapes = useStore((state) => state.shapes);
+  const updateShapeStore = useStore((state) => state.updateShape);
+
+  // Update arcs attached to intersections involving this angle
+  const handleDragMove = useCallback((x: number, y: number) => {
+    const tempShape: Shape = { ...shape, x, y };
+    const arcUpdates = updateAttachedArcs(tempShape, shapes);
+    Object.entries(arcUpdates).forEach(([id, attrs]) => updateShapeStore(id, attrs));
+  }, [shape, shapes, updateShapeStore]);
 
   if (!shape.points || shape.points.length < 6) return null;
 
@@ -36,7 +46,7 @@ export const AngleShape: React.FC<BaseShapeProps> = (props) => {
   ) * 0.3;
 
   return (
-    <BaseShape {...props}>
+    <BaseShape {...props} onDragMove={handleDragMove}>
       {(base) => (
         <>
           {/* First edge - draggable */}

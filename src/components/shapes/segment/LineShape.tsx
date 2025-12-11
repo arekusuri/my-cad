@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Line } from 'react-konva';
+import { useStore, type Shape } from '../../../store/useStore';
 import { VertexHandles } from '../../lib/VertexHandles';
 import { calculateVertexDrag, calculateVertexPos } from './SegmentShape_ops';
 import { BaseShape, getBindProps } from '../BaseShape';
 import type { BaseShapeProps } from '../BaseShapeProps';
+import { updateAttachedArcs } from '../arc/ArcAttachment';
 
 function getExtendedLinePoints(x: number, y: number, points: number[]): number[] {
   if (!points || points.length < 4) return [0, 0, 0, 0];
@@ -18,9 +20,18 @@ function getExtendedLinePoints(x: number, y: number, points: number[]): number[]
 
 export const LineShape: React.FC<BaseShapeProps> = (props) => {
   const { shape, onChange } = props;
+  const shapes = useStore((state) => state.shapes);
+  const updateShapeStore = useStore((state) => state.updateShape);
+
+  // Update arcs attached to intersections involving this line
+  const handleDragMove = useCallback((x: number, y: number) => {
+    const tempShape: Shape = { ...shape, x, y };
+    const arcUpdates = updateAttachedArcs(tempShape, shapes);
+    Object.entries(arcUpdates).forEach(([id, attrs]) => updateShapeStore(id, attrs));
+  }, [shape, shapes, updateShapeStore]);
 
   return (
-    <BaseShape {...props}>
+    <BaseShape {...props} onDragMove={handleDragMove}>
       {(base) => {
         const extendedPoints = getExtendedLinePoints(base.x, base.y, shape.points || [0, 0, 0, 0]);
         return (

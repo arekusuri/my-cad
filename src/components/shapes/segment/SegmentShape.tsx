@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Line } from 'react-konva';
-import type { LineType } from '../../../store/useStore';
+import type { LineType, Shape } from '../../../store/useStore';
 import { useStore } from '../../../store/useStore';
 import { VertexHandles } from '../../lib/VertexHandles';
 import { calculateVertexDrag, calculateVertexPos } from './SegmentShape_ops';
 import { BaseShape, getBindProps } from '../BaseShape';
 import type { BaseShapeProps } from '../BaseShapeProps';
+import { updateAttachedArcs } from '../arc/ArcAttachment';
 
 function getLineDash(lineType: LineType | undefined, scale: number): number[] | undefined {
   const baseSize = 8, dotSize = 2, gap = 4;
@@ -20,11 +21,20 @@ function getLineDash(lineType: LineType | undefined, scale: number): number[] | 
 export const SegmentShape: React.FC<BaseShapeProps> = (props) => {
   const { shape, onChange } = props;
   const viewportScale = useStore((state) => state.viewport.scale);
+  const shapes = useStore((state) => state.shapes);
+  const updateShapeStore = useStore((state) => state.updateShape);
   
   const dashPattern = getLineDash(shape.lineType, viewportScale);
 
+  // Update arcs attached to intersections involving this segment
+  const handleDragMove = useCallback((x: number, y: number) => {
+    const tempShape: Shape = { ...shape, x, y };
+    const arcUpdates = updateAttachedArcs(tempShape, shapes);
+    Object.entries(arcUpdates).forEach(([id, attrs]) => updateShapeStore(id, attrs));
+  }, [shape, shapes, updateShapeStore]);
+
   return (
-    <BaseShape {...props}>
+    <BaseShape {...props} onDragMove={handleDragMove}>
       {(base) => (
         <>
           <Line

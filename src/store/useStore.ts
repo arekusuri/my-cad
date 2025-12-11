@@ -54,8 +54,12 @@ export interface Shape {
   /** For arc shapes: attachment info for center point */
   centerAttachment?: {
     targetShapeId: string;
-    attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter';
+    attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter' | 'intersection';
     targetIndex: number;
+    /** For intersection attachments: the other shape involved (arc or edge-containing shape) */
+    secondaryShapeId?: string;
+    /** For intersection attachments: which intersection point (0 or 1, since line-arc can have 2 intersections) */
+    intersectionIndex?: number;
   };
 }
 
