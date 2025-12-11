@@ -11,6 +11,7 @@ import { AngleDrawing } from '../shapes/angle/AngleDrawing';
 import { AnglePreview } from '../shapes/angle/AnglePreview';
 import { CompassDrawing } from '../shapes/arc/CompassDrawing';
 import { CompassPreview } from '../shapes/arc/CompassPreview';
+import { FreehandDrawing } from '../shapes/freehand/FreehandDrawing';
 import { type Point, findLineIntersections } from '../../utils/geometry';
 
 interface UseDrawingToolsProps {
@@ -58,6 +59,7 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         triangle: new TriangleDrawing(),
         angle: new AngleDrawing(),
         compass: new CompassDrawing(),
+        freehand: new FreehandDrawing(),
     });
     
     // Preview renderers for each tool (registered at init time)

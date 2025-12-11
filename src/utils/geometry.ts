@@ -8,6 +8,7 @@ import * as triangleGeometry from '../components/shapes/triangle/geometry';
 import * as polygonGeometry from '../components/shapes/polygon/geometry';
 import * as angleGeometry from '../components/shapes/angle/geometry';
 import * as arcGeometry from '../components/shapes/arc/geometry';
+import * as freehandGeometry from '../components/shapes/freehand/geometry';
 
 export interface Point {
   x: number;
@@ -30,6 +31,7 @@ const shapeGeometry: Record<string, {
   polygon: polygonGeometry,
   angle: angleGeometry,
   arc: arcGeometry,
+  freehand: freehandGeometry,
 };
 
 // ============== Core Geometry Functions ==============

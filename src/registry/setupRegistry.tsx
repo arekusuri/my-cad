@@ -14,6 +14,7 @@ import { TriangleShape } from '../components/shapes/triangle/TriangleShape';
 import { PolygonShape } from '../components/shapes/polygon/PolygonShape';
 import { AngleShape } from '../components/shapes/angle/AngleShape';
 import { ArcShape } from '../components/shapes/arc/ArcShape';
+import { FreehandShape } from '../components/shapes/freehand/FreehandShape';
 
 // Drawing tools
 import { SegmentDrawing } from '../components/shapes/segment/SegmentDrawing';
@@ -24,6 +25,7 @@ import { TriangleDrawing } from '../components/shapes/triangle/TriangleDrawing';
 import { PolygonDrawing } from '../components/shapes/polygon/PolygonDrawing';
 import { AngleDrawing } from '../components/shapes/angle/AngleDrawing';
 import { CompassDrawing } from '../components/shapes/arc/CompassDrawing';
+import { FreehandDrawing } from '../components/shapes/freehand/FreehandDrawing';
 
 // Icons
 import { Square, Circle, Triangle, Hexagon } from 'lucide-react';
@@ -64,6 +66,13 @@ const CompassIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
     <path d="M 5 18 L 6 20 L 7 18" fill="none" />
     <circle cx="18" cy="20" r="1" fill="currentColor" stroke="none" />
     <path d="M 6 20 A 12 12 0 0 1 10 14" fill="none" strokeDasharray="2 2" />
+  </svg>
+);
+
+// Custom freehand/pencil icon
+const FreehandIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M 4 17 Q 8 10 12 14 T 20 8" />
   </svg>
 );
 
@@ -141,6 +150,15 @@ export function setupShapeRegistry(): void {
     component: ArcShape,
     createDrawingTool: () => new CompassDrawing(),
     toolbar: { icon: CompassIcon, label: 'Compass', order: 80 },
+  });
+
+  // Freehand
+  registerShape({
+    type: 'freehand',
+    toolType: 'freehand',
+    component: FreehandShape,
+    createDrawingTool: () => new FreehandDrawing(),
+    toolbar: { icon: FreehandIcon, label: 'Freehand', order: 82 },
   });
 
   // Non-drawing tools
