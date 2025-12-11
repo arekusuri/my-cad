@@ -1,4 +1,5 @@
-import type { DrawingTool, DrawingContext, DrawingMouseEvent, DrawingResult } from '../../tools/DrawingTool';
+import type { DrawingTool, DrawingContext, DrawingMouseEvent, DrawingResult, SnapPointInfo } from '../../tools/DrawingTool';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface CompassDrawState {
     /** Step 1: Center point */
@@ -9,6 +10,10 @@ export interface CompassDrawState {
     radius?: number;
     /** Current arc's start point (resets after each arc is drawn) */
     startPoint?: { x: number; y: number };
+    /** Group ID for all arcs in this compass session */
+    groupId: string;
+    /** Snap info for center point (for attachment) */
+    centerSnapInfo?: SnapPointInfo;
 }
 
 /**
@@ -41,13 +46,18 @@ export class CompassDrawing implements DrawingTool {
         
         let x = e.x;
         let y = e.y;
+        let centerSnapInfo: SnapPointInfo | undefined;
         
         // Apply snapping if Alt is pressed
         if (e.altKey) {
-            const vertexSnap = ctx.findSnapPoint(x, y);
-            if (vertexSnap) {
-                x = vertexSnap.x;
-                y = vertexSnap.y;
+            const snapInfo = ctx.findSnapPointInfo(x, y);
+            if (snapInfo) {
+                x = snapInfo.x;
+                y = snapInfo.y;
+                // Only store snap info for center point (first click)
+                if (!this.drawState) {
+                    centerSnapInfo = snapInfo;
+                }
             } else {
                 x = ctx.snapToGrid(x);
                 y = ctx.snapToGrid(y);
@@ -55,8 +65,8 @@ export class CompassDrawing implements DrawingTool {
         }
         
         if (!this.drawState) {
-            // First click: set center point
-            this.drawState = { center: { x, y } };
+            // First click: set center point (generate groupId for this session)
+            this.drawState = { center: { x, y }, groupId: uuidv4(), centerSnapInfo };
             this.previewPoint = { x, y };
             return { handled: true };
         } else if (!this.drawState.radiusPoint) {
@@ -112,7 +122,15 @@ export class CompassDrawing implements DrawingTool {
             const startAngleDeg = startAngle * (180 / Math.PI);
             const sweepAngleDeg = sweepAngle * (180 / Math.PI);
             
-            // Create arc shape
+            // Create arc shape with groupId so all arcs from this session are linked
+            // Include centerAttachment if center was snapped to a point
+            const { centerSnapInfo } = this.drawState;
+            const centerAttachment = centerSnapInfo && centerSnapInfo.type !== 'perpendicular' ? {
+                targetShapeId: centerSnapInfo.shapeId,
+                attachType: centerSnapInfo.type as 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter',
+                targetIndex: centerSnapInfo.index,
+            } : undefined;
+            
             ctx.addShape({
                 type: 'arc',
                 x: center.x,
@@ -122,13 +140,17 @@ export class CompassDrawing implements DrawingTool {
                 sweepAngle: sweepAngleDeg,
                 stroke: 'black',
                 rotation: 0,
+                groupId: this.drawState.groupId,
+                centerAttachment,
             });
             
-            // Reset startPoint but keep center and radius for more arcs
+            // Reset startPoint but keep center, radius, groupId, and centerSnapInfo for more arcs
             this.drawState = { 
                 center: this.drawState.center, 
                 radiusPoint: this.drawState.radiusPoint,
-                radius: this.drawState.radius 
+                radius: this.drawState.radius,
+                groupId: this.drawState.groupId,
+                centerSnapInfo: this.drawState.centerSnapInfo,
             };
             this.previewPoint = { x, y };
             
@@ -158,21 +180,18 @@ export class CompassDrawing implements DrawingTool {
         }
         
         // If we have radius set, snap preview to the circle
-        if (this.drawState.radiusPoint) {
-            const { center, radiusPoint } = this.drawState;
-            const radius = Math.sqrt(
-                Math.pow(radiusPoint.x - center.x, 2) + 
-                Math.pow(radiusPoint.y - center.y, 2)
-            );
+        if (this.drawState.radius) {
+            const { center, radius } = this.drawState;
             const angle = Math.atan2(y - center.y, x - center.x);
             
-            // Shift key snaps to 15° increments
+            // Shift key snaps to 15° increments (only when setting start point)
             let snappedAngle = angle;
             if (e.shiftKey && !this.drawState.startPoint) {
                 const snapAngle = Math.PI / 12; // 15 degrees
                 snappedAngle = Math.round(angle / snapAngle) * snapAngle;
             }
             
+            // Always snap to circle after radius is confirmed
             this.previewPoint = {
                 x: center.x + radius * Math.cos(snappedAngle),
                 y: center.y + radius * Math.sin(snappedAngle)

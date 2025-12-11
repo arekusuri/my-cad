@@ -1,13 +1,16 @@
-import { useRef, useMemo, useCallback, useSyncExternalStore } from 'react';
+import React, { useRef, useMemo, useCallback, useSyncExternalStore } from 'react';
 import { useStore } from '../../store/useStore';
 import type { DrawingTool, DrawingContext, DrawingMouseEvent, SnapPointInfo } from './DrawingTool';
 import { CircleDrawing } from '../shapes/circle/CircleDrawing';
 import { RectangleDrawing } from '../shapes/rectangle/RectangleDrawing';
 import { SegmentDrawing, LineDrawing } from '../shapes/segment';
 import { PolygonDrawing } from '../shapes/polygon/PolygonDrawing';
-import { TriangleDrawing, type TriangleDrawState } from '../shapes/triangle/TriangleDrawing';
-import { AngleDrawing, type AngleDrawState } from '../shapes/angle/AngleDrawing';
-import { CompassDrawing, type CompassDrawState } from '../shapes/arc/CompassDrawing';
+import { TriangleDrawing } from '../shapes/triangle/TriangleDrawing';
+import { TrianglePreview } from '../shapes/triangle/TrianglePreview';
+import { AngleDrawing } from '../shapes/angle/AngleDrawing';
+import { AnglePreview } from '../shapes/angle/AnglePreview';
+import { CompassDrawing } from '../shapes/arc/CompassDrawing';
+import { CompassPreview } from '../shapes/arc/CompassPreview';
 import { type Point, findLineIntersections } from '../../utils/geometry';
 
 interface UseDrawingToolsProps {
@@ -55,6 +58,19 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         triangle: new TriangleDrawing(),
         angle: new AngleDrawing(),
         compass: new CompassDrawing(),
+    });
+    
+    // Preview renderers for each tool (registered at init time)
+    const previewsRef = useRef<Record<string, () => React.ReactNode>>({
+        triangle: () => React.createElement(TrianglePreview, {
+            getPreviewData: () => (toolsRef.current['triangle'] as TriangleDrawing).getPreviewData()
+        }),
+        angle: () => React.createElement(AnglePreview, {
+            getPreviewData: () => (toolsRef.current['angle'] as AngleDrawing).getPreviewData()
+        }),
+        compass: () => React.createElement(CompassPreview, {
+            getPreviewData: () => (toolsRef.current['compass'] as CompassDrawing).getPreviewData()
+        }),
     });
     
     // Subscribe to tool state changes for re-rendering
@@ -124,28 +140,16 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         }
     }, [activeTool]);
     
-    // Get triangle preview data (only when triangle tool is active)
-    const getTrianglePreview = useCallback((): { drawState: TriangleDrawState | null; previewPoint: { x: number; y: number } | null } => {
-        const triangleTool = toolsRef.current['triangle'] as TriangleDrawing;
-        return triangleTool.getPreviewData();
-    }, []);
-    
     // Get segment start point (for perpendicular foot calculation)
     const getSegmentStartPoint = useCallback((): { x: number; y: number } | null => {
         const segmentTool = toolsRef.current['segment'] as SegmentDrawing;
         return segmentTool.getStartPoint();
     }, []);
     
-    // Get angle preview data (only when angle tool is active)
-    const getAnglePreview = useCallback((): { drawState: AngleDrawState | null; previewPoint: { x: number; y: number } | null } => {
-        const angleTool = toolsRef.current['angle'] as AngleDrawing;
-        return angleTool.getPreviewData();
-    }, []);
-    
-    // Get compass preview data (only when compass tool is active)
-    const getCompassPreview = useCallback((): { drawState: CompassDrawState | null; previewPoint: { x: number; y: number } | null } => {
-        const compassTool = toolsRef.current['compass'] as CompassDrawing;
-        return compassTool.getPreviewData();
+    // Render the preview for a tool type (uses pre-registered preview)
+    const renderPreview = useCallback((toolType: string): React.ReactNode => {
+        const previewFn = previewsRef.current[toolType];
+        return previewFn ? previewFn() : null;
     }, []);
     
     return {
@@ -161,12 +165,8 @@ export function useDrawingTools({ snapToGrid, findSnapPoint, findSnapPointInfo }
         handleMouseUp,
         /** Cancel current drawing operation */
         cancel,
-        /** Get triangle preview data for rendering */
-        getTrianglePreview,
-        /** Get angle preview data for rendering */
-        getAnglePreview,
-        /** Get compass preview data for rendering */
-        getCompassPreview,
+        /** Render the preview for a tool instance */
+        renderPreview,
         /** Get segment start point (for perpendicular snap) */
         getSegmentStartPoint,
     };

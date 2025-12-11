@@ -56,20 +56,16 @@ export class AngleDrawing implements DrawingTool {
             // Second click: finalize angle with second edge
             const { vertex } = this.drawState;
             
-            // The x-distance from vertex to click determines both edges' x-extent
-            const dx = x - vertex.x;
-            const dy = y - vertex.y;
+            // Second edge goes directly to click point (free angle)
+            const edge2End = { x, y };
             
-            // Use the x-distance as the common x-extent for both edges
-            // First edge is horizontal, second edge goes to the click point
-            // Both endpoints share the same x-coordinate
-            const xExtent = Math.abs(dx) > 10 ? dx : DEFAULT_EDGE_LENGTH;
+            // Calculate second edge length
+            const edge2Dx = edge2End.x - vertex.x;
+            const edge2Dy = edge2End.y - vertex.y;
+            const edge2Length = Math.sqrt(edge2Dx ** 2 + edge2Dy ** 2);
             
-            // First edge: horizontal to the right (or left if click is on left)
-            const edge1End = { x: vertex.x + xExtent, y: vertex.y };
-            
-            // Second edge: same x-extent, y from click (endpoints are vertically aligned)
-            const edge2End = { x: vertex.x + xExtent, y: vertex.y + dy };
+            // First edge is horizontal (always positive x), same length as second edge
+            const edge1End = { x: vertex.x + edge2Length, y: vertex.y };
             
             // Create angle shape with points relative to vertex (origin)
             // points: [vertex(0,0), edge1End, edge2End]

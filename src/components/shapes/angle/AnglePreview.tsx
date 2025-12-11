@@ -3,8 +3,8 @@ import { Line, Circle } from 'react-konva';
 import type { AngleDrawState } from './AngleDrawing';
 
 interface AnglePreviewProps {
-  drawState: AngleDrawState | null;
-  previewPoint: { x: number; y: number } | null;
+  /** Getter function to fetch preview data */
+  getPreviewData: () => { drawState: AngleDrawState | null; previewPoint: { x: number; y: number } | null };
 }
 
 /**
@@ -12,28 +12,26 @@ interface AnglePreviewProps {
  * Shows the vertex, first edge (solid), and second edge preview (dashed).
  * Both edge endpoints share the same x-coordinate (vertically aligned).
  */
-export const AnglePreview: React.FC<AnglePreviewProps> = ({ drawState, previewPoint }) => {
+export const AnglePreview: React.FC<AnglePreviewProps> = ({ getPreviewData }) => {
+  const { drawState, previewPoint } = getPreviewData();
   if (!drawState) return null;
   
   const { vertex } = drawState;
   
-  // Calculate x-extent based on preview point
-  let xExtent = 100; // Default length
-  let edge2Y = vertex.y - 100; // Default angle (45° up)
+  // Second edge goes directly to preview point (free angle)
+  let edge2End = { x: vertex.x + 100, y: vertex.y - 100 }; // Default 45° up
   
   if (previewPoint) {
-    const dx = previewPoint.x - vertex.x;
-    const dy = previewPoint.y - vertex.y;
-    if (Math.abs(dx) > 10) {
-      xExtent = dx;
-    }
-    edge2Y = vertex.y + dy;
+    edge2End = { x: previewPoint.x, y: previewPoint.y };
   }
   
-  // First edge is horizontal, endpoints share the same x
-  const edge1End = { x: vertex.x + xExtent, y: vertex.y };
-  // Second edge endpoint has same x as first edge endpoint
-  const edge2End = { x: vertex.x + xExtent, y: edge2Y };
+  // Calculate second edge length
+  const edge2Dx = edge2End.x - vertex.x;
+  const edge2Dy = edge2End.y - vertex.y;
+  const edge2Length = Math.sqrt(edge2Dx ** 2 + edge2Dy ** 2);
+  
+  // First edge is horizontal (always positive x), scaled to match second edge length
+  const edge1End = { x: vertex.x + edge2Length, y: vertex.y };
   
   return (
     <>

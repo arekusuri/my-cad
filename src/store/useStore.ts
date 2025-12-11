@@ -49,6 +49,14 @@ export interface Shape {
   startAngle?: number;
   /** For arc shapes: sweep angle in degrees (can be negative for clockwise) */
   sweepAngle?: number;
+  /** Group ID - shapes with same groupId move and select together */
+  groupId?: string;
+  /** For arc shapes: attachment info for center point */
+  centerAttachment?: {
+    targetShapeId: string;
+    attachType: 'vertex' | 'midpoint' | 'circumcenter' | 'incenter' | 'centroid' | 'orthocenter';
+    targetIndex: number;
+  };
 }
 
 export type ToolType = 'select' | 'rectangle' | 'circle' | 'segment' | 'line' | 'triangle' | 'polygon' | 'angle' | 'compass' | 'eraser' | 'trim' | 'point' | 'zoom';
@@ -58,6 +66,20 @@ export interface ViewportState {
   scale: number;
   x: number;
   y: number;
+}
+
+/** Drag state for multi-selection event broadcasting */
+export interface DragState {
+  /** Whether a drag is in progress */
+  isDragging: boolean;
+  /** ID of the shape that initiated the drag */
+  initiatorId: string | null;
+  /** Starting position when drag began */
+  startPoint: { x: number; y: number } | null;
+  /** Current drag position */
+  currentPoint: { x: number; y: number } | null;
+  /** Starting positions of all selected shapes when drag began */
+  startPositions: Map<string, { x: number; y: number }>;
 }
 
 interface StoreState {
@@ -74,11 +96,17 @@ interface StoreState {
   viewport: ViewportState;
   /** Whether we are currently zoomed in (not at default view) */
   isZoomed: boolean;
+  /** Drag state for multi-selection event broadcasting */
+  dragState: DragState;
   
   setTool: (tool: ToolType) => void;
   setVertexEditMode: (enabled: boolean) => void;
   addShape: (shape: Omit<Shape, 'id'>) => void;
   updateShape: (id: string, attrs: Partial<Shape>) => void;
+  /** Update multiple shapes at once (for multi-selection move) */
+  updateShapes: (updates: Array<{ id: string; attrs: Partial<Shape> }>) => void;
+  /** Move all selected shapes by a delta */
+  moveSelectedShapes: (deltaX: number, deltaY: number) => void;
   selectShape: (id: string | string[] | null) => void;
   selectVertices: (indices: Record<string, number[]>) => void;
   deleteShape: (id: string) => void;
@@ -93,9 +121,22 @@ interface StoreState {
   setViewport: (viewport: ViewportState) => void;
   /** Reset viewport to default (show whole grid) */
   resetViewport: () => void;
+  /** Start dragging - records starting positions of all selected shapes */
+  startDrag: (initiatorId: string, startPoint: { x: number; y: number }) => void;
+  /** Update drag position - shapes will read this and move themselves */
+  updateDrag: (currentPoint: { x: number; y: number }) => void;
+  /** End dragging */
+  endDrag: () => void;
 }
 
 const DEFAULT_VIEWPORT: ViewportState = { scale: 1, x: 0, y: 0 };
+const DEFAULT_DRAG_STATE: DragState = {
+  isDragging: false,
+  initiatorId: null,
+  startPoint: null,
+  currentPoint: null,
+  startPositions: new Map(),
+};
 
 export const useStore = create<StoreState>((set, get) => ({
   shapes: [],
@@ -109,6 +150,7 @@ export const useStore = create<StoreState>((set, get) => ({
   isAltPressed: false,
   viewport: DEFAULT_VIEWPORT,
   isZoomed: false,
+  dragState: DEFAULT_DRAG_STATE,
 
   setTool: (tool) => set({ tool, selectedIds: [], selectedVertexIndices: {}, vertexEditMode: false }),
   setVertexEditMode: (enabled) => set({ vertexEditMode: enabled }),
@@ -118,10 +160,53 @@ export const useStore = create<StoreState>((set, get) => ({
   updateShape: (id, attrs) => set((state) => ({
     shapes: state.shapes.map((s) => (s.id === id ? { ...s, ...attrs } : s))
   })),
-  selectShape: (id) => set({ 
-    selectedIds: id === null ? [] : Array.isArray(id) ? id : [id],
-    selectedVertexIndices: {}, // Clear vertex selection when shape selection changes
-    vertexEditMode: id !== null, // Directly enter vertex edit mode when selecting
+  updateShapes: (updates) => set((state) => {
+    const updateMap = new Map(updates.map(u => [u.id, u.attrs]));
+    return {
+      shapes: state.shapes.map((s) => {
+        const attrs = updateMap.get(s.id);
+        return attrs ? { ...s, ...attrs } : s;
+      })
+    };
+  }),
+  moveSelectedShapes: (deltaX, deltaY) => set((state) => ({
+    shapes: state.shapes.map((s) => 
+      state.selectedIds.includes(s.id) 
+        ? { ...s, x: s.x + deltaX, y: s.y + deltaY }
+        : s
+    )
+  })),
+  selectShape: (id) => set((state) => {
+    if (id === null) {
+      return { selectedIds: [], selectedVertexIndices: {}, vertexEditMode: false };
+    }
+    
+    const ids = Array.isArray(id) ? id : [id];
+    
+    // Expand selection to include all shapes with the same groupId
+    const groupIds = new Set<string>();
+    ids.forEach(shapeId => {
+      const shape = state.shapes.find(s => s.id === shapeId);
+      if (shape?.groupId) {
+        groupIds.add(shape.groupId);
+      }
+    });
+    
+    // Add all shapes with matching groupIds to selection
+    const expandedIds = new Set(ids);
+    if (groupIds.size > 0) {
+      state.shapes.forEach(s => {
+        if (s.groupId && groupIds.has(s.groupId)) {
+          expandedIds.add(s.id);
+        }
+      });
+    }
+    
+    return {
+      selectedIds: Array.from(expandedIds),
+      selectedVertexIndices: {},
+      vertexEditMode: true,
+    };
   }),
   selectVertices: (indices) => set({ selectedVertexIndices: indices }),
   deleteShape: (id) => set((state) => ({
@@ -154,4 +239,46 @@ export const useStore = create<StoreState>((set, get) => ({
   setAltPressed: (pressed) => set({ isAltPressed: pressed }),
   setViewport: (viewport) => set({ viewport, isZoomed: true }),
   resetViewport: () => set({ viewport: DEFAULT_VIEWPORT, isZoomed: false, tool: 'select' }),
+  
+  // Drag state management for multi-selection
+  startDrag: (initiatorId, startPoint) => {
+    const state = get();
+    // Only track multi-selection drag
+    if (state.selectedIds.length <= 1) {
+      set({ dragState: DEFAULT_DRAG_STATE });
+      return;
+    }
+    
+    // Record starting positions of all selected shapes
+    const startPositions = new Map<string, { x: number; y: number }>();
+    state.selectedIds.forEach(id => {
+      const shape = state.shapes.find(s => s.id === id);
+      if (shape) {
+        startPositions.set(id, { x: shape.x, y: shape.y });
+      }
+    });
+    
+    set({
+      dragState: {
+        isDragging: true,
+        initiatorId,
+        startPoint,
+        currentPoint: startPoint,
+        startPositions,
+      }
+    });
+  },
+  
+  updateDrag: (currentPoint) => {
+    set((state) => ({
+      dragState: {
+        ...state.dragState,
+        currentPoint,
+      }
+    }));
+  },
+  
+  endDrag: () => {
+    set({ dragState: DEFAULT_DRAG_STATE });
+  },
 }));

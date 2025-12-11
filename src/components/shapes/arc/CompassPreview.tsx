@@ -3,8 +3,8 @@ import { Circle, Arc, Line } from 'react-konva';
 import type { CompassDrawState } from './CompassDrawing';
 
 interface CompassPreviewProps {
-  drawState: CompassDrawState | null;
-  previewPoint: { x: number; y: number } | null;
+  /** Getter function to fetch preview data */
+  getPreviewData: () => { drawState: CompassDrawState | null; previewPoint: { x: number; y: number } | null };
 }
 
 /**
@@ -16,7 +16,8 @@ interface CompassPreviewProps {
  * - Arc preview
  * These are only visible during drawing, not on the final shape.
  */
-export const CompassPreview: React.FC<CompassPreviewProps> = ({ drawState, previewPoint }) => {
+export const CompassPreview: React.FC<CompassPreviewProps> = ({ getPreviewData }) => {
+  const { drawState, previewPoint } = getPreviewData();
   if (!drawState) return null;
   
   const { center, radiusPoint, radius: storedRadius, startPoint } = drawState;
@@ -47,14 +48,12 @@ export const CompassPreview: React.FC<CompassPreviewProps> = ({ drawState, previ
   
   return (
     <>
-      {/* Center point - always show while compass is active */}
+      {/* Center point - small indicator */}
       <Circle
         x={center.x}
         y={center.y}
-        radius={4}
+        radius={3}
         fill="#ef4444"
-        stroke="#ef4444"
-        strokeWidth={1}
         listening={false}
       />
       
@@ -69,13 +68,13 @@ export const CompassPreview: React.FC<CompassPreviewProps> = ({ drawState, previ
         />
       )}
       
-      {/* Circle guide (dotted) - show once radius is set */}
+      {/* Circle guide (dotted) - semi-transparent so it doesn't obscure drawn arcs */}
       {radiusPoint && radius > 0 && (
         <Circle
           x={center.x}
           y={center.y}
           radius={radius}
-          stroke="#999"
+          stroke="rgba(150, 150, 150, 0.4)"
           strokeWidth={1}
           dash={[6, 4]}
           listening={false}

@@ -3,15 +3,16 @@ import { Line, Rect } from 'react-konva';
 import type { TriangleDrawState } from './TriangleDrawing';
 
 interface TrianglePreviewProps {
-    drawState: TriangleDrawState | null;
-    previewPoint: { x: number; y: number } | null;
+    /** Getter function to fetch preview data */
+    getPreviewData: () => { drawState: TriangleDrawState | null; previewPoint: { x: number; y: number } | null };
 }
 
 /**
  * Component to render the triangle preview during drawing.
  * Shows dashed lines and point markers.
  */
-export const TrianglePreview: React.FC<TrianglePreviewProps> = ({ drawState, previewPoint }) => {
+export const TrianglePreview: React.FC<TrianglePreviewProps> = ({ getPreviewData }) => {
+    const { drawState, previewPoint } = getPreviewData();
     if (!drawState || !previewPoint) return null;
 
     return (

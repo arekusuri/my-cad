@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Stage, Layer, Circle as KonvaCircle, Line } from 'react-konva';
 import { useStore, type Shape, type AttachedPoint } from './store/useStore';
-import { ShapeObj } from './components/lib/ShapeObj';
+import { getShapeComponent } from './registry';
 import Konva from 'konva';
 import { getShapeVertices, getShapeMidpoints, type Point } from './utils/geometry';
 import { getShapeSpecialSnapPoints } from './utils/shapeSnapPoints';
@@ -12,10 +12,8 @@ import { useZoomMode, ZoomBoxOverlay } from './components/modes/ZoomMode';
 import { useSelectionMode, SelectionBoxOverlay } from './components/modes/SelectionMode';
 import { useDrawingTools } from './components/tools/useDrawingTools';
 import type { SnapPointInfo } from './components/tools/DrawingTool';
-import { TrianglePreview, getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot, getPerpendicularExtension, type EdgeExtensionInfo } from './components/shapes/triangle';
+import { getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot, getPerpendicularExtension, type EdgeExtensionInfo } from './components/shapes/triangle';
 import { getLineArcIntersections, getShapeEdges } from './utils/geometry';
-import { AnglePreview } from './components/shapes/angle';
-import { CompassPreview } from './components/shapes/arc';
 import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './components/shapes/polygon';
 import { Grid } from './components/lib/Grid';
 import { handleTrim } from './components/tools/Trim';
@@ -493,14 +491,6 @@ export const Canvas: React.FC = () => {
 
   // handleTrim removed - using Trim tool
 
-  // Get triangle preview data
-  const trianglePreview = drawingTools.getTrianglePreview();
-  
-  // Get angle preview data
-  const anglePreview = drawingTools.getAnglePreview();
-  
-  // Get compass preview data
-  const compassPreview = drawingTools.getCompassPreview();
 
   // Calculate all attached point positions for rendering
   const getAttachedPointsToRender = useCallback(() => {
@@ -572,25 +562,29 @@ export const Canvas: React.FC = () => {
         scaleY={viewport.scale}
       >
         <Grid viewport={viewport} />
-        {shapes.map((shape) => (
-          <ShapeObj
-            key={shape.id}
-            shape={shape}
-            isSelected={selectedIds.includes(shape.id)}
-            onSelect={() => {
-              selectShape(shape.id);
-            }}
-            onChange={(newAttrs) => updateShape(shape.id, newAttrs)}
-            onTrim={(e) => {
-                const stage = e.target.getStage();
-                const screenPos = stage?.getPointerPosition();
-                if (screenPos) {
-                   const pos = screenToWorld(screenPos.x, screenPos.y);
-                   handleTrim(shape.id, pos.x, pos.y, shapes, addShape, deleteShape);
-                }
-            }}
-          />
-        ))}
+        {shapes.map((shape) => {
+          const ShapeComponent = getShapeComponent(shape.type);
+          if (!ShapeComponent) return null;
+          return (
+            <ShapeComponent
+              key={shape.id}
+              shape={shape}
+              isSelected={selectedIds.includes(shape.id)}
+              onSelect={() => {
+                selectShape(shape.id);
+              }}
+              onChange={(newAttrs) => updateShape(shape.id, newAttrs)}
+              onTrim={(e) => {
+                  const stage = e.target.getStage();
+                  const screenPos = stage?.getPointerPosition();
+                  if (screenPos) {
+                     const pos = screenToWorld(screenPos.x, screenPos.y);
+                     handleTrim(shape.id, pos.x, pos.y, shapes, addShape, deleteShape);
+                  }
+              }}
+            />
+          );
+        })}
         <SelectionBoxOverlay selectionBox={selectionBox} viewportScale={viewport.scale} />
         {/* Ortho Mode Axes - show when shift is held and object is selected */}
         <OrthoAxesOverlay 
@@ -601,12 +595,8 @@ export const Canvas: React.FC = () => {
             viewportScale={viewport.scale} 
         />
         <SnapPointHighlight hoveredSnapPoint={hoveredSnapPoint} viewportScale={viewport.scale} />
-        {/* Triangle tool preview */}
-        <TrianglePreview drawState={trianglePreview.drawState} previewPoint={trianglePreview.previewPoint} />
-        {/* Angle tool preview */}
-        <AnglePreview drawState={anglePreview.drawState} previewPoint={anglePreview.previewPoint} />
-        {/* Compass tool preview */}
-        <CompassPreview drawState={compassPreview.drawState} previewPoint={compassPreview.previewPoint} />
+        {/* Tool preview - rendered by the active tool */}
+        {drawingTools.renderPreview(tool)}
         {/* Render attached points */}
         {attachedPointsToRender.map(({ point, position }) => (
           <KonvaCircle
