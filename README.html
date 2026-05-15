@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CAD - 2D Drawing Application</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      color: #24292f;
+      background: #fff;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+    h1 { font-size: 2rem; border-bottom: 2px solid #d0d7de; padding-bottom: .5rem; margin-top: 0; }
+    h2 { font-size: 1.4rem; border-bottom: 1px solid #d0d7de; padding-bottom: .3rem; margin-top: 2rem; }
+    h3 { font-size: 1.1rem; margin-top: 1.5rem; color: #0969da; }
+    h4 { font-size: 1rem; margin-top: 1.2rem; }
+    p  { margin: .6rem 0; }
+    a  { color: #0969da; }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: .875em;
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+      padding: .1em .35em;
+    }
+    pre {
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    pre code { background: none; border: none; padding: 0; font-size: .85rem; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: .8rem 0;
+      font-size: .9rem;
+    }
+    th, td { border: 1px solid #d0d7de; padding: .5rem .75rem; text-align: left; }
+    th { background: #f6f8fa; font-weight: 600; }
+    tr:nth-child(even) td { background: #fafbfc; }
+    kbd {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: .8em;
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+      padding: .1em .4em;
+      box-shadow: inset 0 -1px 0 #d0d7de;
+    }
+    .badges { display: flex; gap: .5rem; flex-wrap: wrap; margin: .8rem 0 1.2rem; }
+    .badges img { height: 20px; }
+    .install-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #16a34a;
+      border-radius: 6px;
+      padding: 1.2rem 1.5rem;
+      margin: 1.5rem 0;
+    }
+    .install-box h2 { border-color: #bbf7d0; margin-top: 0; color: #15803d; }
+    hr { border: none; border-top: 1px solid #d0d7de; margin: 1.8rem 0; }
+    em { color: #57606a; }
+    ul { padding-left: 1.4rem; }
+    li { margin: .3rem 0; }
+    .tag { display: inline-block; background: #ddf4ff; color: #0550ae; font-size: .75rem;
+           border-radius: 2em; padding: .15em .65em; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<h1>CAD &mdash; 2D Drawing Application</h1>
+
+<p>A lightweight 2D CAD (Computer-Aided Design) application built with React, TypeScript, and Konva.js. Create, edit, and manipulate geometric shapes with professional-grade drawing tools.</p>
+
+<div class="badges">
+  <img src="https://img.shields.io/badge/React-19-blue" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5.8-blue" alt="TypeScript 5.8" />
+  <img src="https://img.shields.io/badge/Vite-6.0-purple" alt="Vite 6.0" />
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- INSTALLATION (moved to top)                                         -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="install-box">
+  <h2>&#9881; Getting Started</h2>
+
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Node.js 18+</li>
+    <li>npm or yarn</li>
+  </ul>
+
+  <h3>Installation</h3>
+  <pre><code># Clone the repository
+git clone &lt;repository-url&gt;
+cd cad
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev</code></pre>
+
+  <h3>Build for Production</h3>
+  <pre><code>npm run build</code></pre>
+</div>
+
+<hr />
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- FEATURES                                                            -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>Features</h2>
+<ul>
+  <li>Multiple shape drawing tools</li>
+  <li>Vertex editing mode</li>
+  <li>Ortho mode (constrained drawing)</li>
+  <li>Auto-snapping to vertices and midpoints</li>
+  <li>Window &amp; Crossing selection modes</li>
+  <li>Trim and Eraser tools</li>
+</ul>
+
+<hr />
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- TOOLS                                                               -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>Tools</h2>
+
+<h3>Select Tool</h3>
+<p>The default tool for selecting and manipulating shapes.</p>
+<table>
+  <thead><tr><th>Action</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Click shape</strong></td><td>Select the shape and enter vertex edit mode</td></tr>
+    <tr><td><strong>Click + Drag shape</strong></td><td>Select AND move the shape in one motion</td></tr>
+    <tr><td><strong>Click empty area</strong></td><td>Deselect all</td></tr>
+    <tr><td><strong>Drag on empty area (↓ down)</strong></td><td><strong>Window selection</strong> &mdash; selects shapes fully contained in the blue box</td></tr>
+    <tr><td><strong>Drag on empty area (↑ up)</strong></td><td><strong>Crossing selection</strong> &mdash; selects shapes that intersect the green box</td></tr>
+    <tr><td><strong>Drag vertex handles</strong></td><td>Modify individual vertices to reshape</td></tr>
+  </tbody>
+</table>
+
+<h4>Vertex Edit Mode</h4>
+<p>When a shape is selected, vertex handles appear immediately:</p>
+<ul>
+  <li>Drag individual vertices to reshape</li>
+  <li>Hold <kbd>Alt</kbd> while hovering to see snap targets</li>
+  <li>Hold <kbd>Shift</kbd> while dragging to constrain to H/V axis</li>
+</ul>
+
+<hr />
+
+<h3>Rectangle Tool</h3>
+<p>Draw rectangles by click-and-drag.</p>
+<table>
+  <thead><tr><th>Action</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Click + Drag</strong></td><td>Draw rectangle from corner to corner</td></tr>
+    <tr><td><strong>Shift + Drag</strong></td><td>Constrain to perfect square</td></tr>
+    <tr><td><strong>Alt + Click/Drag</strong></td><td>Snap to grid and shape vertices</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h3>Circle Tool</h3>
+<p>Draw circles by click-and-drag.</p>
+<table>
+  <thead><tr><th>Action</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Click + Drag</strong></td><td>Draw circle with center at click point, radius by drag distance</td></tr>
+    <tr><td><strong>Shift + Drag</strong></td><td>Constrain radius to horizontal or vertical axis</td></tr>
+    <tr><td><strong>Alt + Click/Drag</strong></td><td>Snap to grid and shape vertices</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h3>Triangle Tool</h3>
+<p>Draw arbitrary triangles with 3 clicks.</p>
+<table>
+  <thead><tr><th>Action</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Click 1</strong></td><td>Place first vertex</td></tr>
+    <tr><td><strong>Click 2</strong></td><td>Place second vertex</td></tr>
+    <tr><td><strong>Click 3</strong></td><td>Place third vertex and complete triangle</td></tr>
+    <tr><td><strong>Shift + Click</strong></td><td>Constrain point placement to ortho (H/V) from previous point</td></tr>
+    <tr><td><strong>Alt + Click</strong></td><td>Snap to grid and shape vertices</td></tr>
+    <tr><td><strong>Escape</strong></td><td>Cancel drawing and switch to select tool</td></tr>
+  </tbody>
+</table>
+<p><em>Preview lines show the triangle shape as you place points.</em></p>
+
+<hr />
+
+<h3>Polygon Tool</h3>
+<p>Draw regular hexagons (6-sided polygons) by click-and-drag.</p>
+<table>
+  <thead><tr><th>Action</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Click + Drag</strong></td><td>Draw hexagon with center at click point, radius by drag distance</td></tr>
+    <tr><td><strong>Shift + Drag</strong></td><td>Constrain radius to horizontal or vertical axis</td></tr>
+    <tr><td><strong>Alt + Click/Drag</strong></td><td>Snap to grid and shape vertices</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h3>Segment Tool</h3>
+<p>Draw line segments by click-and-drag.</p>
+<table>
+  <thead><tr><th>Action</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Click + Drag</strong></td><td>Draw line from start point to end point</td></tr>
+    <tr><td><strong>Shift + Drag</strong></td><td>Force horizontal or vertical line (ortho mode)</td></tr>
+    <tr><td><strong>Alt + Click/Drag</strong></td><td>Snap to grid and shape vertices</td></tr>
+    <tr><td><em>Auto-snap</em></td><td>Lines automatically snap to H/V when within 5°</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h3>Trim Tool</h3>
+<p>Trim line segments at intersection points with other shapes.</p>
+<table>
+  <thead><tr><th>Action</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Click on segment</strong></td><td>Removes the portion of the segment between intersections</td></tr>
+  </tbody>
+</table>
+<p><em>Works with segments intersecting rectangles and other segments.</em></p>
+
+<hr />
+
+<h3>Eraser Tool</h3>
+<p>Delete shapes by clicking on them.</p>
+<table>
+  <thead><tr><th>Action</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Click on shape</strong></td><td>Immediately delete the shape</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- MODIFIER KEYS                                                       -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>Modifier Keys</h2>
+
+<h3><kbd>Shift</kbd> &mdash; Ortho Mode</h3>
+<p>Hold <kbd>Shift</kbd> to enable orthographic constraints:</p>
+<table>
+  <thead><tr><th>Context</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td>Drawing rectangle</td><td>Constrains to perfect square</td></tr>
+    <tr><td>Drawing circle/polygon</td><td>Constrains radius to H or V axis</td></tr>
+    <tr><td>Drawing segment</td><td>Forces horizontal or vertical line</td></tr>
+    <tr><td>Drawing triangle</td><td>Constrains point placement to H/V from previous point</td></tr>
+    <tr><td>Moving selected shape</td><td>Constrains movement to H or V axis</td></tr>
+    <tr><td>Dragging vertex</td><td>Constrains to axis (or makes segment H/V)</td></tr>
+    <tr><td>Rotating shape</td><td>Snaps to 90° increments</td></tr>
+  </tbody>
+</table>
+<p><em>Visual guide: When Shift is held with a selected shape, red (horizontal) and green (vertical) axis lines appear.</em></p>
+
+<h3><kbd>Alt</kbd> &mdash; Snap Mode</h3>
+<p>Hold <kbd>Alt</kbd> to enable snapping and disable vertex editing:</p>
+<table>
+  <thead><tr><th>Context</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td>Drawing shapes</td><td>Snap to 20px grid</td></tr>
+    <tr><td>Near vertices</td><td>Snap to shape vertices (red circle highlight)</td></tr>
+    <tr><td>Near midpoints</td><td>Snap to edge midpoints (blue triangle highlight)</td></tr>
+    <tr><td>Moving shapes</td><td>Snap to grid positions</td></tr>
+    <tr><td>Vertex handles</td><td><strong>Hidden</strong> &mdash; prevents accidental shape changes</td></tr>
+  </tbody>
+</table>
+<p><em>When Alt is held: snap targets are highlighted, but vertex handles are hidden so you can only select and move shapes — not change their geometry.</em></p>
+
+<hr />
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SELECTION MODES                                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>Selection Modes</h2>
+
+<h3>Window Selection <span class="tag">Blue Box</span></h3>
+<ul>
+  <li>Drag <strong>downward</strong> from empty space</li>
+  <li>Creates a <strong>blue</strong> dashed selection box</li>
+  <li>Only selects shapes <strong>fully contained</strong> within the box</li>
+</ul>
+
+<h3>Crossing Selection <span class="tag">Green Box</span></h3>
+<ul>
+  <li>Drag <strong>upward</strong> from empty space</li>
+  <li>Creates a <strong>green</strong> dashed selection box</li>
+  <li>Selects shapes that <strong>intersect or are contained</strong> within the box</li>
+</ul>
+
+<hr />
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- KEYBOARD SHORTCUTS                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>Keyboard Shortcuts</h2>
+<table>
+  <thead><tr><th>Key</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>Escape</kbd></td><td>Cancel current operation / Switch to select tool</td></tr>
+    <tr><td><strong>Right-click</strong> (on empty)</td><td>Switch to select tool</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- ARCHITECTURE                                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>Architecture</h2>
+<p>The application follows a modular architecture with encapsulated drawing tools:</p>
+<pre><code>src/
+├── components/
+│   ├── Canvas.tsx          # Main canvas component
+│   ├── Toolbar.tsx         # Tool selection UI
+│   ├── ShapeObj.tsx        # Shape renderer dispatcher
+│   ├── shapes/             # Individual shape components
+│   │   ├── RectShape.tsx
+│   │   ├── CircleShape.tsx
+│   │   ├── TriangleShape.tsx
+│   │   ├── PolygonShape.tsx
+│   │   └── SegmentShape.tsx
+│   ├── tools/              # Drawing tool implementations
+│   │   ├── DrawingTool.ts      # Base interface &amp; DragDrawingTool class
+│   │   ├── CircleDrawing.ts
+│   │   ├── RectDrawing.ts
+│   │   ├── TriangleDrawing.ts
+│   │   ├── PolygonDrawing.ts
+│   │   ├── SegmentDrawing.ts
+│   │   └── useDrawingTools.ts  # Tool management hook
+│   └── modes/              # Drawing modes
+│       ├── OrthoMode.ts        # Orthographic constraints
+│       └── AutoSnappingMode.tsx # Vertex/midpoint snapping
+├── store/
+│   └── useStore.ts         # Zustand state management
+└── utils/
+    └── geometry.ts         # Geometric calculations</code></pre>
+
+<h3>Drawing Tool Pattern</h3>
+<p>Each shape tool implements the <code>DrawingTool</code> interface:</p>
+<ul>
+  <li><strong>Drag-based tools</strong> (rect, circle, segment, polygon) extend <code>DragDrawingTool</code></li>
+  <li><strong>Click-based tools</strong> (triangle) implement <code>DrawingTool</code> directly</li>
+</ul>
+<p>This encapsulation keeps shape-specific logic out of the Canvas component.</p>
+
+<hr />
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- TECH STACK                                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>Tech Stack</h2>
+<ul>
+  <li><strong>React 19</strong> &mdash; UI framework</li>
+  <li><strong>TypeScript</strong> &mdash; Type safety</li>
+  <li><strong>Vite</strong> &mdash; Build tool</li>
+  <li><strong>Konva.js</strong> &mdash; 2D canvas library</li>
+  <li><strong>react-konva</strong> &mdash; React bindings for Konva</li>
+  <li><strong>Zustand</strong> &mdash; State management</li>
+  <li><strong>Tailwind CSS</strong> &mdash; Styling</li>
+  <li><strong>Lucide React</strong> &mdash; Icons</li>
+</ul>
+
+<hr />
+
+<h2>License</h2>
+<p>MIT</p>
+
+</body>
+</html>

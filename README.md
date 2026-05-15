@@ -4,6 +4,34 @@ A lightweight 2D CAD (Computer-Aided Design) application built with React, TypeS
 
 ![React](https://img.shields.io/badge/React-19-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue) ![Vite](https://img.shields.io/badge/Vite-6.0-purple)
 
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd cad
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+### Build for Production
+
+```bash
+npm run build
+```
+
+---
+
 ## Features
 
 - 🎨 Multiple shape drawing tools
@@ -212,34 +240,6 @@ Each shape tool implements the `DrawingTool` interface:
 - **Click-based tools** (triangle) implement `DrawingTool` directly
 
 This encapsulation keeps shape-specific logic out of the Canvas component.
-
----
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-
-### Installation
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd cad
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-### Build for Production
-
-```bash
-npm run build
-```
 
 ---
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Circle as KonvaCircle, RegularPolygon, Rect, Line } from 'react-konva';
 import { type Shape } from '../../store/useStore';
-import { getShapeVertices, getShapeMidpoints, getShapeEdges, getLineArcIntersections } from '../../utils/geometry';
+import { getShapeVertices, getShapeMidpoints, getShapeEdges, getLineArcIntersections, getArcArcIntersections } from '../../utils/geometry';
 import { getShapeSpecialSnapPoints } from '../../utils/shapeSnapPoints';
 import { constrainLineToOrtho } from './OrthoMode';
 import { calculatePerpendicularFoot } from '../shapes/segment/PerpendicularFoot';
@@ -337,7 +337,53 @@ export const findClosestSnapPoint = (
         });
     });
     
+    // Check for arc-arc intersections
+    for (let i = 0; i < arcs.length; i++) {
+        const arc1 = arcs[i];
+        for (let j = i + 1; j < arcs.length; j++) {
+            const arc2 = arcs[j];
+            
+            const arcArcIntersections = getArcArcIntersections(
+                { x: arc1.x, y: arc1.y }, arc1.radius!, arc1.startAngle!, arc1.sweepAngle!,
+                { x: arc2.x, y: arc2.y }, arc2.radius!, arc2.startAngle!, arc2.sweepAngle!
+            );
+            
+            arcArcIntersections.forEach((intersection, idx) => {
+                const d = Math.sqrt(Math.pow(intersection.x - pos.x, 2) + Math.pow(intersection.y - pos.y, 2));
+                if (d < minDist) {
+                    minDist = d;
+                    closest = { 
+                        shapeId: arc1.id, 
+                        index: idx, 
+                        x: intersection.x, 
+                        y: intersection.y, 
+                        type: 'intersection' 
+                    };
+                }
+            });
+        }
+    }
+    
     return closest;
+};
+
+/**
+ * Simple helper that returns just coordinates for snap point.
+ * Wrapper around findClosestSnapPoint for simpler use cases.
+ */
+export const findSnapPointCoords = (
+    pos: { x: number; y: number },
+    shapes: Shape[],
+    threshold: number = 10,
+    excludeShapeId?: string | null
+): { x: number; y: number } | null => {
+    // Filter out excluded shape
+    const filteredShapes = excludeShapeId 
+        ? shapes.filter(s => s.id !== excludeShapeId)
+        : shapes;
+    
+    const snapPoint = findClosestSnapPoint(pos, filteredShapes, threshold);
+    return snapPoint ? { x: snapPoint.x, y: snapPoint.y } : null;
 };
 
 export const handleVertexDrag = (

@@ -104,6 +104,110 @@ export function isPointInRect(p: Point, rect: { x: number; y: number; width: num
 
 // ============== Arc Intersection (used by arc geometry) ==============
 
+/**
+ * Check if an angle is within an arc's angular range
+ */
+function isAngleOnArc(
+  angle: number, 
+  startAngleRad: number, 
+  sweepAngleRad: number
+): boolean {
+  let normalizedAngle = angle;
+  let normalizedStart = startAngleRad;
+  
+  while (normalizedAngle < 0) normalizedAngle += 2 * Math.PI;
+  while (normalizedAngle >= 2 * Math.PI) normalizedAngle -= 2 * Math.PI;
+  while (normalizedStart < 0) normalizedStart += 2 * Math.PI;
+  while (normalizedStart >= 2 * Math.PI) normalizedStart -= 2 * Math.PI;
+  
+  if (sweepAngleRad >= 0) {
+    const endAngle = normalizedStart + sweepAngleRad;
+    if (endAngle > 2 * Math.PI) {
+      return normalizedAngle >= normalizedStart || normalizedAngle <= endAngle - 2 * Math.PI;
+    }
+    return normalizedAngle >= normalizedStart && normalizedAngle <= endAngle;
+  } else {
+    const endAngle = normalizedStart + sweepAngleRad;
+    if (endAngle < 0) {
+      return normalizedAngle <= normalizedStart || normalizedAngle >= endAngle + 2 * Math.PI;
+    }
+    return normalizedAngle <= normalizedStart && normalizedAngle >= endAngle;
+  }
+}
+
+/**
+ * Get intersection points between two arcs
+ */
+export function getArcArcIntersections(
+  center1: Point, radius1: number, startAngle1: number, sweepAngle1: number,
+  center2: Point, radius2: number, startAngle2: number, sweepAngle2: number
+): Point[] {
+  const intersections: Point[] = [];
+  
+  // Distance between centers
+  const dx = center2.x - center1.x;
+  const dy = center2.y - center1.y;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  
+  // Check if circles intersect
+  if (d > radius1 + radius2 + 0.001) return intersections; // Too far apart
+  if (d < Math.abs(radius1 - radius2) - 0.001) return intersections; // One inside the other
+  if (d < 0.001 && Math.abs(radius1 - radius2) < 0.001) return intersections; // Same circle
+  
+  // Find intersection points of the two circles
+  const a = (radius1 * radius1 - radius2 * radius2 + d * d) / (2 * d);
+  const h2 = radius1 * radius1 - a * a;
+  
+  if (h2 < 0) return intersections; // No real intersection
+  
+  const h = Math.sqrt(h2);
+  
+  // Point P is along the line from center1 to center2, at distance a from center1
+  const px = center1.x + (a * dx) / d;
+  const py = center1.y + (a * dy) / d;
+  
+  // Convert angles to radians
+  const start1Rad = startAngle1 * Math.PI / 180;
+  const sweep1Rad = sweepAngle1 * Math.PI / 180;
+  const start2Rad = startAngle2 * Math.PI / 180;
+  const sweep2Rad = sweepAngle2 * Math.PI / 180;
+  
+  if (h < 0.001) {
+    // Single intersection point (circles tangent)
+    const point = { x: px, y: py };
+    const angle1 = Math.atan2(point.y - center1.y, point.x - center1.x);
+    const angle2 = Math.atan2(point.y - center2.y, point.x - center2.x);
+    
+    if (isAngleOnArc(angle1, start1Rad, sweep1Rad) && 
+        isAngleOnArc(angle2, start2Rad, sweep2Rad)) {
+      intersections.push(point);
+    }
+  } else {
+    // Two intersection points
+    const point1 = {
+      x: px + (h * dy) / d,
+      y: py - (h * dx) / d
+    };
+    const point2 = {
+      x: px - (h * dy) / d,
+      y: py + (h * dx) / d
+    };
+    
+    // Check if each point is on both arcs
+    for (const point of [point1, point2]) {
+      const angle1 = Math.atan2(point.y - center1.y, point.x - center1.x);
+      const angle2 = Math.atan2(point.y - center2.y, point.x - center2.x);
+      
+      if (isAngleOnArc(angle1, start1Rad, sweep1Rad) && 
+          isAngleOnArc(angle2, start2Rad, sweep2Rad)) {
+        intersections.push(point);
+      }
+    }
+  }
+  
+  return intersections;
+}
+
 export function getLineArcIntersections(
   lineStart: Point,
   lineEnd: Point,

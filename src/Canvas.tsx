@@ -6,14 +6,14 @@ import Konva from 'konva';
 import { getShapeVertices, getShapeMidpoints, type Point } from './utils/geometry';
 import { getShapeSpecialSnapPoints } from './utils/shapeSnapPoints';
 import { registerAllShapeSnapPoints } from './utils/shapeSnapPointsSetup';
-import { SnapPointHighlight, useVertexDrag, type SnapPoint } from './components/modes/AutoSnappingMode';
+import { SnapPointHighlight, useVertexDrag, findSnapPointCoords, type SnapPoint } from './components/modes/AutoSnappingMode';
 import { OrthoAxesOverlay } from './components/modes/OrthoMode.tsx';
 import { useZoomMode, ZoomBoxOverlay } from './components/modes/ZoomMode';
 import { useSelectionMode, SelectionBoxOverlay } from './components/modes/SelectionMode';
 import { useDrawingTools } from './components/tools/useDrawingTools';
 import type { SnapPointInfo } from './components/tools/DrawingTool';
 import { getTriangleAttachedPoints, updateTriangleAttachedSegments, calculatePerpendicularFoot, getPerpendicularExtension, type EdgeExtensionInfo } from './components/shapes/triangle';
-import { getLineArcIntersections, getShapeEdges } from './utils/geometry';
+import { getLineArcIntersections, getArcArcIntersections, getShapeEdges } from './utils/geometry';
 import { getPolygonAttachedPoints, updatePolygonAttachedSegments } from './components/shapes/polygon';
 import { Grid } from './components/lib/Grid';
 import { handleTrim } from './components/tools/Trim';
@@ -55,77 +55,9 @@ export const Canvas: React.FC = () => {
   // Snap function
   const snapToGrid = useCallback((val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE, []);
 
-  // Find snap point (vertex of other shapes)
+  // Find snap point (vertex of other shapes) - uses AutoSnappingMode's logic
   const findSnapPoint = useCallback((x: number, y: number, excludeShapeId?: string | null): Point | null => {
-      let closestPoint: Point | null = null;
-      let minDist = 10; // Snap threshold
-
-      shapes.forEach(shape => {
-          if (excludeShapeId && shape.id === excludeShapeId) return;
-          
-          const vertices = getShapeVertices(shape);
-          vertices.forEach(v => {
-              const d = Math.sqrt(Math.pow(v.x - x, 2) + Math.pow(v.y - y, 2));
-              if (d < minDist) {
-                  minDist = d;
-                  closestPoint = v;
-              }
-          });
-
-          // Check midpoints
-          const midpoints = getShapeMidpoints(shape);
-          midpoints.forEach(m => {
-              const d = Math.sqrt(Math.pow(m.x - x, 2) + Math.pow(m.y - y, 2));
-              if (d < minDist) {
-                  minDist = d;
-                  closestPoint = m;
-              }
-          });
-
-          // Check special snap points (circumcenter, etc.) via shape-specific providers
-          const specialPoints = getShapeSpecialSnapPoints(shape);
-          specialPoints.forEach(sp => {
-              const d = Math.sqrt(Math.pow(sp.point.x - x, 2) + Math.pow(sp.point.y - y, 2));
-              if (d < minDist) {
-                  minDist = d;
-                  closestPoint = sp.point;
-              }
-          });
-      });
-      
-      // Check for intersections between existing shape edges and arcs
-      const arcs = shapes.filter(s => s.type === 'arc' && s.radius !== undefined && 
-          s.startAngle !== undefined && s.sweepAngle !== undefined);
-      
-      shapes.forEach(shape => {
-          if (excludeShapeId && shape.id === excludeShapeId) return;
-          
-          const edges = getShapeEdges(shape);
-          edges.forEach(([p1, p2]) => {
-              arcs.forEach(arc => {
-                  if (excludeShapeId && arc.id === excludeShapeId) return;
-                  if (arc.id === shape.id) return;
-                  
-                  const arcIntersections = getLineArcIntersections(
-                      p1, p2,
-                      { x: arc.x, y: arc.y },
-                      arc.radius!,
-                      arc.startAngle!,
-                      arc.sweepAngle!
-                  );
-                  
-                  arcIntersections.forEach(intersection => {
-                      const d = Math.sqrt(Math.pow(intersection.x - x, 2) + Math.pow(intersection.y - y, 2));
-                      if (d < minDist) {
-                          minDist = d;
-                          closestPoint = intersection;
-                      }
-                  });
-              });
-          });
-      });
-
-      return closestPoint;
+      return findSnapPointCoords({ x, y }, shapes, 10, excludeShapeId);
   }, [shapes]);
 
   // Drawing tools (encapsulated - handles all shapes: circle, rect, segment, polygon, triangle)
@@ -256,6 +188,39 @@ export const Canvas: React.FC = () => {
               });
           });
       });
+      
+      // Check for arc-arc intersections
+      for (let i = 0; i < arcs.length; i++) {
+          const arc1 = arcs[i];
+          if (excludeShapeId && arc1.id === excludeShapeId) continue;
+          
+          for (let j = i + 1; j < arcs.length; j++) {
+              const arc2 = arcs[j];
+              if (excludeShapeId && arc2.id === excludeShapeId) continue;
+              
+              const arcArcIntersections = getArcArcIntersections(
+                  { x: arc1.x, y: arc1.y }, arc1.radius!, arc1.startAngle!, arc1.sweepAngle!,
+                  { x: arc2.x, y: arc2.y }, arc2.radius!, arc2.startAngle!, arc2.sweepAngle!
+              );
+              
+              arcArcIntersections.forEach((intersection, idx) => {
+                  const d = Math.sqrt(Math.pow(intersection.x - x, 2) + Math.pow(intersection.y - y, 2));
+                  if (d < minDist) {
+                      minDist = d;
+                      // Store both arcs for arc-arc intersection
+                      closest = { 
+                          x: intersection.x, 
+                          y: intersection.y, 
+                          shapeId: arc1.id, 
+                          type: 'intersection', 
+                          index: idx,
+                          secondaryShapeId: arc2.id,
+                          intersectionIndex: idx
+                      };
+                  }
+              });
+          }
+      }
 
       return closest;
   }, [shapes]);

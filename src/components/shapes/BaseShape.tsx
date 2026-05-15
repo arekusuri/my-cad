@@ -94,9 +94,11 @@ export const BaseShape: React.FC<BaseShapeProps> = ({
     } else if (tool === 'trim') {
       onTrim(e);
       e.cancelBubble = true;
-    } else {
+    } else if (tool === 'select') {
+      // Only allow selection when select tool is active
       onSelect();
     }
+    // For all other tools, do nothing on click (don't select)
   };
 
   const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
